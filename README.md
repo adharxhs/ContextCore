@@ -2,7 +2,7 @@
 
 ContextCore is an explainable, query-aware context-compression layer for chat LLM requests. It selects relevant evidence under a token budget **without** using a separate generative LLM call to summarize every request. Given a system prompt, chat history, external context blocks, and a query, it returns shorter query-relevant context plus a per-chunk provenance trace.
 
-The hackathon MVP comprises a Python compression library, a thin FastAPI wrapper, a comparison dashboard, and a reproducible 40-case benchmark. One real chat model is used only for the optional full-context vs compressed-context answer comparison.
+The hackathon MVP comprises a Python compression library, a thin FastAPI wrapper, a comparison dashboard, and a reproducible 50-case benchmark. One real chat model is used only for the optional full-context vs compressed-context answer comparison.
 
 ## Run
 
@@ -16,34 +16,48 @@ Frontend dashboard: http://localhost:5173.
 Without Docker, from the repo root:
 
 ```
-pip install -r backend/requirements.txt
-pip install tiktoken rank-bm25 numpy fastembed
+pip install -r backend/requirements.txt -r ml/requirements.txt
 uvicorn backend.app.main:app --reload
 ```
 
-`fastembed` provides the dense embedding and cross-encoder ONNX models (`BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`); the first run downloads them. The `bm25` scorer needs only `rank-bm25`. If the engine cannot be imported, the backend returns a clearly-scoped offline fallback so the dashboard stays usable.
+`ml/requirements.txt` pins the engine's actual runtime dependencies. For a fully offline run with no
+model download, select the `bm25` scorer (needs only `tiktoken`, `rank-bm25`, `numpy`). The `dense`
+and `cross_encoder` scorers use FastEmbed ONNX models (`BAAI/bge-small-en-v1.5`,
+`BAAI/bge-reranker-base`, both MIT); the first run downloads them. Set `FASTEMBED_CACHE_PATH` to a
+persistent directory (see `data/README.md`) and `docker-compose.yml` mounts `./ml/models` so weights
+stay out of Git. If FastEmbed is unavailable the scorers degrade to TF-IDF/hybrid ranking; the
+harness reports that mode. If the engine cannot be imported, the backend returns a clearly-scoped
+offline fallback (`X-ContextCore-Execution: fallback`) so the dashboard stays usable.
 
 Copy `.env.example` to `.env` only if environment overrides are needed. Provider credentials are evaluation-only and are never required to run compression.
 
 ## Evaluate
 
 ```
-python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-tokenizer
+python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-tokenizer --fail-on-degraded
 ```
 
-Runs the 40 version-controlled cases in `data/benchmark/cases.jsonl` through the real engine
-(`ml.src.inference.compress_context`) at each case's token budget and reports evidence recall,
-token reduction, p50/p95 latency, and budget overruns. The harness records the **verified** engine
-tokenizer (`tiktoken cl100k_base`); `--require-tokenizer` fails the run if the engine silently used
-its heuristic fallback. `--mock` exercises only the harness pipeline and must never be reported as
-a result.
+Runs the 50 version-controlled cases in `data/benchmark/cases.jsonl` (40 core + 10 stress) through the
+real engine (`ml.src.inference.compress_context`) at each case's token budget. It reports evidence
+recall (overall, core, stress, per category), token reduction, p50/p95 latency, the **verified**
+engine tokenizer (`tiktoken cl100k_base`), the dense/cross-encoder **model mode** (full vs degraded),
+and budget overruns (flagged as protected-linked). `--require-tokenizer` fails if the engine silently
+used its heuristic tokenizer; `--fail-on-degraded` fails if a scorer fell back; `--fail-on-over-budget`
+fails on any budget overrun. `--mock` exercises only the harness pipeline and must never be reported
+as a result. For a fully offline run use `--scorers bm25`.
 
-Run the test suites and contract gate:
+Run the test suites, lint, and contract gate:
 
 ```
 python -m pytest
 python -m ruff check scripts
 python scripts/check_contract.py
+```
+
+Docker smoke check (builds the stack, waits for `/health`, posts a BM25 compression):
+
+```
+bash scripts/smoke.sh
 ```
 
 ## Demo
@@ -61,13 +75,15 @@ http://localhost:5173) presents the same result visually.
 
 ## Validation status
 
-Real engine benchmark results (see `docs/evaluation.md`): the engine now reduces tokens by ~61%
-(target ~50%) with ~82-85% evidence recall, but **10/40 cases still exceed the token budget**
-(+4.4 tokens mean) and required evidence is lost on ~8 cases per scorer (QA-dependency and
-long-history scenarios). In addition, `ml/tests/test_dedup.py::test_near_dedup_threshold` fails on
-`main`. These Engine-lane issues are tracked as defects E1-residual/E4, E6, and E7. Scorer models
-and the manifest gap (`ml/requirements.txt`) are open issues too. Do not cite the mock pipeline
-numbers (92.5% recall / 54% reduction) as engine performance.
+Real engine benchmark results (see `docs/evaluation.md`, base `145a25c`): the engine reduces
+tokens by ~59% with 80-83% mean evidence recall (core 80-84%, stress 80%). 16/50 cases still exceed
+the token budget, all protected-linked and signaled by the engine's explicit `budget_exceeded`
+field. Open Engine issues: evidence is lost on QA-dependency/long-history cases (E6), unprotected
+oversized sentences are dropped (E8), and irrelevant protected spans crowd out relevant evidence
+(E9). Fixed in Engine PR #8: the manifest gap (E3) and the over-budget signal (E4). Remaining
+contract gaps: Engine `token_budget`/`tokenizer`, Product `budget_exceeded`/`execution_mode` body
+fields, plus Product lint (P2). Do not cite the mock pipeline numbers as engine performance.
+Cross-lane blockers are tracked in `docs/integration-status.md`.
 
 ## Layout
 
@@ -77,7 +93,7 @@ numbers (92.5% recall / 54% reduction) as engine performance.
 | `frontend/` | UI and demo dashboard |
 | `ml/` | Compression engine, scorer adapters (Engine lane) |
 | `data/` | Benchmark cases and derived results (see `data/README.md`) |
-| `docs/` | Contract, decisions, evaluation, acknowledgements |
-| `scripts/` | Evaluation harness, contract gate, utilities |
+| `docs/` | Contract, decisions, evaluation, acknowledgements, integration status |
+| `scripts/` | Evaluation harness, contract gate, smoke test, utilities |
 
 Contributor and agent rules: see `AGENTS.md`. Shared interface: `docs/contract.md`.

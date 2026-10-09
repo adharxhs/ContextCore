@@ -22,12 +22,15 @@ enforces this, and also that `token_budget` forces reduction.
 
 ## Budget derivation
 
-Budgets are derived at fixture time as `max(floor(0.5 * whitespace-input-tokens), evidence-tokens + 12, 24)`.
-This guarantees every case demands at least ~50% token reduction while leaving enough
-room for the required evidence. Real engine token counts (tiktoken) can differ from the
-whitespace estimate; budgets are far enough below input size to remain forcing.
+Core budgets are derived at fixture time as
+`max(floor(0.5 * whitespace-input-tokens), evidence-tokens + 12, 24)`. This guarantees every case
+demands at least ~50% token reduction while leaving enough room for the required evidence. Stress
+cases set the budget deliberately below a single protected or oversized sentence so the
+protected-only-overflow and oversized-sentence paths are exercised; their budgets are still below
+the whitespace input size. Real engine token counts (tiktoken) can differ from the whitespace
+estimate; budgets are far enough below input size to remain forcing.
 
-## Categories (40 cases)
+## Categories (50 cases: 40 core + 10 stress)
 
 | Category | Count | Intent |
 |---|---|---|
@@ -39,6 +42,14 @@ whitespace estimate; budgets are far enough below input size to remain forcing.
 | `negations` | 4 | Prohibitions that must never be dropped |
 | `qa_dependency` | 5 | Assistant answer needs its preceding user question |
 | `distractors` | 5 | One relevant block among five mostly irrelevant ones |
+| `near_dedup` | 3 | Near-identical source blocks; must merge to save budget/overrun |
+| `oversized_sentence` | 2 | One sentence larger than the budget (protected and unprotected) |
+| `protected_overflow` | 2 | Protected content alone exceeds the budget; must be flagged |
+| `protected_precision` | 3 | Irrelevant protected spans must not crowd out the real evidence |
+
+The first eight are the stable **core** taxonomy (fixture requires ≥4 cases each). The last four are
+the **stress** categories (≥2 each) added to cover known failure modes; they are reported separately
+by the harness so they do not silently move the core trend line.
 
 ## Editing
 
@@ -49,9 +60,9 @@ whitespace estimate; budgets are far enough below input size to remain forcing.
 
 ## Validation status
 
-The 40 cases already satisfy the intended 30–50-case scope and cover the full taxonomy, so no cases
-were added during validation; assertions were strengthened instead (`scripts/test_evaluate.py`,
-`scripts/check_contract.py`). A real-engine run (`docs/evaluation.md`) after engine fix `956f322`
-reaches ~61% token reduction, but 10/40 cases still exceed the token budget and ~8 cases per scorer
-lose required evidence — budget and recall acceptance remain open (defects E1-residual/E4 and E6,
-Engine owner).
+The 50 cases satisfy the 30–50-case scope and cover the full taxonomy. A real-engine run
+(`docs/evaluation.md`, `2026-10-10`, base `145a25c`, dataset sha256 `d53a6ad2a2bfe5bf`) reaches ~59%
+token reduction, 80–83% mean evidence recall (core 80–84%, stress 80%), and 16/50 budget overruns
+(all protected-linked, signaled by the engine's `budget_exceeded` field). The stress cases expose
+two open Engine gaps: unprotected oversized sentences are dropped (`os-001`) and irrelevant
+protected spans crowd out relevant evidence (`pp-001`).
