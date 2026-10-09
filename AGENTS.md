@@ -18,23 +18,27 @@ Build **Context Surgeon**: a model-agnostic Python library and thin HTTP API tha
 - Before changing a shared contract, update `docs/contract.md` and notify affected owners.
 
 ## Authority
-The human project lead decides architecture, shared interfaces, cross-lane dependencies, and scope. Agents act autonomously inside their lane.
+The human project lead decides architecture, shared interfaces, cross-lane dependencies, and scope. The three owners act autonomously inside their lane. Contract changes require Lead approval before implementation.
 
-## Lanes
-| Agent | Owns |
-|---|---|
-| Engine | `ml/`, `data/` — compression pipeline, scorer adapters, evaluation |
-| Product | `frontend/` — dashboard and API consumption |
-| Platform | `backend/`, `docker-compose.yml` — HTTP boundary, configuration, packaging |
-| Lead/shared | `AGENTS.md`, `README.md`, `scripts/`, `docs/` — scope, contracts, demo |
+## Three lanes
+| Owner | Owns | Delivers | Handoff |
+|---|---|---|---|
+| **1. Engine** | `ml/src/`, `ml/models/` | Chunking, protected spans, deduplication, BM25/dense/hybrid/cross-encoder scoring, token-budget selection, ordered output, and chunk trace | Exposes only `ml/src/inference.py` to API; gives scorer results to Validation |
+| **2. Product** | `backend/`, `frontend/`, `docker-compose.yml` | Explicit API schemas, `/v1/compress`, health route, dashboard, original/compressed view, locks, trace highlighting, and counters | Consumes the approved contract only; never imports engine internals from the frontend |
+| **3. Validation & Lead** | `data/`, `docs/`, root config, `scripts/`, `README.md`, `AGENTS.md` | 30–50 benchmark cases, metrics, optional same-model answer comparison, contract ownership, integration, Docker runbook, and final demo | Publishes benchmark fixtures and approves contract/scope changes |
 
-Do not edit outside your lane; request changes from the owner via the lead. `docs/` is open for new files.
+Do not edit another owner’s files. For a required cross-lane change, open a contract change or ask the owner; do not make a “quick” edit in their lane.
+
+### Shared-document ownership
+- `docs/contract.md`: Validation & Lead owns edits; all three must agree before a shared field changes.
+- `docs/evaluation.md`, `data/README.md`, `docs/ACKNOWLEDGEMENTS.md`: Validation & Lead owns structure; Engine/Product may submit results or dependency details.
+- `docs/decisions.md`: anyone may append one dated line; do not rewrite others’ entries.
 
 ## Interfaces
 - `docs/contract.md` is the single source of truth for API routes, schemas, and the engine interface.
 - The engine exposes only `ml/src/inference.py`; the backend does not import other `ml/` internals.
 - Frontend talks to Backend only over the HTTP API.
-- Contract changes: propose to the lead, commit `contract.md` alone, and notify affected agents before dependent work merges.
+- Contract changes: propose to Validation & Lead, update `contract.md`, and notify both affected owners before dependent work merges.
 - Until the contract is filled, stub with mocks. Do not block.
 
 ## Data
@@ -46,10 +50,10 @@ Do not edit outside your lane; request changes from the owner via the lead. `doc
 Keep them necessary and justified. Add each only to its own lane's manifest. A new external API, hosted model, or service needs one proposal to the lead (need, alternatives, cost); continue with the local fallback until answered. A local LLM is allowed only for genuinely language-heavy needs.
 
 ## Evaluation
-`ml/src/evaluation.py` compares scorers at a fixed token budget. Results go in `docs/evaluation.md`; do not claim quality preservation without recorded evidence.
+Validation compares scorers at a fixed token budget. Results go in `docs/evaluation.md`; do not claim quality preservation without recorded evidence.
 
 ## Conventions
-- Branches: `<lane>/<topic>`. PR to `main`, merged by the lead. No force-push.
-- `main` must always run with the command above.
+- Branches: `engine/<topic>`, `product/<topic>`, or `validation/<topic>`. PR to `main`, merged by the Lead. No force-push.
+- `main` must keep the documented health-check path runnable; features may use mocks until their handoff is complete.
 - Secrets, `.env`, and machine-specific config stay out of Git.
 - Log non-obvious decisions in `docs/decisions.md` (one line: decision, reason).
