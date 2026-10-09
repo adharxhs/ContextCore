@@ -56,9 +56,16 @@ class CompressionResponse(ContractModel):
     saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0)
     budget_exceeded: bool
-    execution_mode: Literal["engine", "fallback"]
+    execution_mode: str
     selected_chunks: list[ChunkTrace]
     dropped_chunks: list[ChunkTrace]
+
+    @field_validator("execution_mode")
+    @classmethod
+    def validate_execution_mode(cls, value: str) -> str:
+        if value not in {"engine", "fallback"}:
+            raise ValueError("execution_mode must be 'engine' or 'fallback'.")
+        return value
 
 
 class ErrorBody(BaseModel):
