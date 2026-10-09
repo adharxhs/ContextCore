@@ -101,7 +101,7 @@ PENDING_ENGINE_FIELDS = {
 }
 PENDING_API_FIELDS = {
     "budget_exceeded": bool,
-    "execution_mode": str,
+    "execution_mode": "Literal['engine', 'fallback']",
 }
 
 failures: list[str] = []
@@ -120,12 +120,18 @@ def pend(message: str) -> None:
     pending.append(message)
 
 
-def _field_type_ok(model: object, field: str, expected: type | tuple) -> tuple[bool, str]:
+def _field_type_ok(model: object, field: str, expected: type | str | tuple) -> tuple[bool, str]:
     """Presence/type probe for a Pydantic model field; missing is not a failure here."""
     fields = getattr(model, "model_fields", {})
     if field not in fields:
         return False, "missing"
     annotation = fields[field].annotation
+
+    # A literal contract is intentionally stricter than its runtime base type.
+    if isinstance(expected, str):
+        if expected in str(annotation):
+            return True, "present"
+        return False, f"present but annotated {annotation!r}, expected {expected}"
     
     # Handle tuple of alternatives (e.g., for tokenizer: str or Literal)
     if isinstance(expected, tuple):
@@ -234,7 +240,8 @@ def check_pending_fields() -> None:
     for field, expected in PENDING_API_FIELDS.items():
         ok, detail = _field_type_ok(CompressionResponse, field, expected)
         if ok:
-            check(True, f"API exposes contract field {field!r} ({expected.__name__})")
+            expected_name = expected.__name__ if hasattr(expected, "__name__") else str(expected)
+            check(True, f"API exposes contract field {field!r} ({expected_name})")
         elif detail == "missing":
             pend(f"API CompressionResponse is missing approved field {field!r} (owner: Product)")
         else:

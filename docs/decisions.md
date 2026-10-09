@@ -1,1 +1,2 @@
 2026-10-09: Engine implements tokenizer field as Literal["cl100k_base", "heuristic"] per contract §2 requirement "exactly one of"; contract checker expects str but Literal is more precise and type-safe. Propose: update checker to accept Literal types matching contract semantics, or update contract to specify str with validation. — Engine owner
+2026-10-10: `execution_mode` is an exact `Literal["engine", "fallback"]`; the contract checker enforces the permitted values rather than weakening the API schema to `str`. — Product/Lead

@@ -63,10 +63,11 @@ them itself.
   `budget_exceeded` is self-describing and a consumer does not have to resend it.
 - `tokenizer` (Engine, **implemented**): the encoder actually used, `Literal["cl100k_base", "heuristic"]`.
   The fallback must never be reported as `cl100k_base`.
-- `execution_mode` (**API only**, Product, **pending**): `engine` when the real engine served the
-  request, `fallback` when the offline demo fallback did. It mirrors the `X-ContextCore-Execution`
-  header and is included in the JSON body so HTTP clients that ignore headers still see it. The API
-  response schema must also mirror `budget_exceeded`.
+- `execution_mode` (**API only**, Product, **implemented**):
+  `Literal["engine", "fallback"]`; `engine` when the real engine served the request and `fallback`
+  when the offline demo fallback did. It mirrors the `X-ContextCore-Execution` header and is included
+  in the JSON body so HTTP clients that ignore headers still see it. The API response schema must also
+  mirror `budget_exceeded`.
 
 Every chunk trace contains:
 

@@ -133,6 +133,7 @@ def _offline_compress(request: CompressRequest) -> dict:
         "saved_tokens": max(0, input_tokens - spent),
         "compression_ms": round((perf_counter() - started) * 1000, 2),
         "budget_exceeded": spent > request.token_budget,
+        "tokenizer": "heuristic",
         "selected_chunks": selected,
         "dropped_chunks": dropped,
     }
@@ -171,9 +172,19 @@ def compress(request: CompressRequest) -> tuple[dict, str]:
         payload = result.model_dump() if hasattr(result, "model_dump") else result
         if not isinstance(payload, dict):
             raise TypeError("Engine result is not a mapping.")
+        # `token_budget` is engine metadata, not part of the public HTTP response.
+        # Remove it at this boundary so the API's strict response schema can reject
+        # genuinely unknown engine fields without rejecting the documented engine field.
+        payload = {key: value for key, value in payload.items() if key != "token_budget"}
         return payload, "engine"
     except ValueError as exc:
         raise CompressionServiceError("engine_rejected_request", str(exc), status_code=400) from exc
+    except (AttributeError, TypeError) as exc:
+        raise CompressionServiceError(
+            "malformed_engine_response",
+            "The compression engine returned an unreadable response.",
+            status_code=502,
+        ) from exc
     except Exception as exc:
         raise CompressionServiceError(
             "engine_execution_failed",

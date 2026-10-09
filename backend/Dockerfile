@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 WORKDIR /srv
 ENV PYTHONPATH=/srv PYTHONUNBUFFERED=1
+COPY pyproject.toml pyproject.toml
 COPY backend/requirements.txt backend/requirements.txt
 COPY ml/requirements.txt ml/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt -r ml/requirements.txt

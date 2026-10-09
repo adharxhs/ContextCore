@@ -9,23 +9,25 @@ function getBlocks() {
 }
 
 function render(data, original, executionMode) {
-  const fallback = executionMode === "fallback";
+  const heuristicTokenizer = data.tokenizer === "heuristic";
+  const verifiedTokenizer = data.tokenizer === "cl100k_base";
+  const comparableTokens = executionMode === "engine" && verifiedTokenizer;
   const reduction = data.input_tokens ? Math.round(data.saved_tokens / data.input_tokens * 100) : 0;
   const protectedCount = data.selected_chunks.filter((item) => item.protected).length;
   const labels = ["Input", "Retained", "Saved", "Latency"];
-  const values = fallback
+  const values = !comparableTokens
     ? [["-", "heuristic estimate"], ["-", "not comparable"], ["-", "not reported"], [data.compression_ms, "ms"]]
     : [[data.input_tokens, "tokens"], [data.output_tokens, "tokens"], [data.saved_tokens, "tokens"], [data.compression_ms, "ms"]];
   $("metrics").innerHTML = values.map(([n, u], i) => `<article><small>${labels[i]}</small><strong>${n}</strong><em>${u}</em></article>`).join("");
-  $("hero-savings").textContent = fallback ? "FALLBACK OUTPUT" : `${reduction}% CONTEXT REMOVED`;
-  $("verdict-value").textContent = fallback ? "--" : `${reduction}%`;
-  $("verdict-subtitle").textContent = fallback ? "Heuristic counts are not comparable." : `${data.input_tokens} to ${data.output_tokens} tokens`;
-  $("verdict-protected").textContent = fallback ? "--" : protectedCount;
-  $("verdict-output").style.width = fallback ? "0%" : `${Math.max(0, Math.min(100, 100 - reduction))}%`;
+  $("hero-savings").textContent = !comparableTokens ? "NON-BENCHMARK OUTPUT" : `${reduction}% CONTEXT REMOVED`;
+  $("verdict-value").textContent = !comparableTokens ? "--" : `${reduction}%`;
+  $("verdict-subtitle").textContent = !comparableTokens ? "Heuristic counts are not comparable." : `${data.input_tokens} to ${data.output_tokens} tokens`;
+  $("verdict-protected").textContent = !comparableTokens ? "--" : protectedCount;
+  $("verdict-output").style.width = !comparableTokens ? "0%" : `${Math.max(0, Math.min(100, 100 - reduction))}%`;
   $("original").textContent = original;
   $("compressed").textContent = data.compressed_text;
-  $("original-count").textContent = fallback ? "heuristic count not shown" : `${data.input_tokens} tokens`;
-  $("retained-count").textContent = fallback ? "heuristic count not shown" : `${data.output_tokens} tokens`;
+  $("original-count").textContent = !comparableTokens ? "heuristic count not shown" : `${data.input_tokens} tokens`;
+  $("retained-count").textContent = !comparableTokens ? "heuristic count not shown" : `${data.output_tokens} tokens`;
 
   const trace = [...data.selected_chunks, ...data.dropped_chunks]
     .sort((a, b) => a.original_index - b.original_index);
@@ -38,8 +40,12 @@ function render(data, original, executionMode) {
   const execution = $("execution");
   execution.textContent = data.budget_exceeded
     ? "BUDGET EXCEEDED - PROTECTED CONTENT RETAINED"
-    : executionMode === "engine"
+    : executionMode === "engine" && heuristicTokenizer
+      ? "ENGINE TOKENIZER FALLBACK - HEURISTIC COUNTS"
+      : executionMode === "engine" && verifiedTokenizer
       ? "Real engine result"
+      : executionMode === "engine"
+        ? "REAL ENGINE - TOKENIZER UNREPORTED"
     : executionMode === "fallback"
       ? "OFFLINE FALLBACK - NOT A BENCHMARK RESULT"
       : "Execution mode unavailable - not a benchmark result";
@@ -57,10 +63,13 @@ $("compress").addEventListener("click", async () => {
     const response = await fetch(`${apiUrl}/v1/compress`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || "Could not compress context.");
-    const executionMode = response.headers.get("X-ContextCore-Execution") || "unknown";
+    const headerMode = response.headers.get("X-ContextCore-Execution");
+    const executionMode = headerMode === data.execution_mode ? headerMode : "unknown";
     render(data, `${payload.system_prompt}\n\n${blocks.map((block) => block.content).join("\n\n")}`, executionMode);
-    status.textContent = executionMode === "engine"
-      ? "Done. Real engine output with a complete provenance trace."
+    status.textContent = executionMode === "engine" && data.tokenizer === "cl100k_base"
+      ? "Done. Real engine output with verified tokenizer counts and a complete provenance trace."
+      : executionMode === "engine"
+        ? "Done. Real engine output, but token counts are not verified for benchmarking."
       : executionMode === "fallback"
         ? "Done using offline fallback. Heuristic token estimates are intentionally hidden."
         : "Done, but the server did not report its execution mode.";

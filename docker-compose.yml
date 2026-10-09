@@ -8,6 +8,8 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      FASTEMBED_CACHE_PATH: /srv/ml/models/fastembed
     volumes:
       - ./ml/models:/srv/ml/models
       - ./data:/srv/data
