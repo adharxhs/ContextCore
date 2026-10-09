@@ -2,21 +2,27 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class Message(BaseModel):
+class ContractModel(BaseModel):
+    """Reject undeclared fields at the public HTTP boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class Message(ContractModel):
     role: Literal["system", "user", "assistant"]
     content: str = Field(min_length=1)
 
 
-class ContextBlock(BaseModel):
+class ContextBlock(ContractModel):
     id: str = Field(min_length=1)
     content: str = Field(min_length=1)
     source: str | None = None
 
 
-class CompressRequest(BaseModel):
+class CompressRequest(ContractModel):
     system_prompt: str = Field(min_length=1)
     history: list[Message] = Field(default_factory=list)
     context_blocks: list[ContextBlock] = Field(default_factory=list)
@@ -30,7 +36,7 @@ class CompressRequest(BaseModel):
         return value.strip().lower()
 
 
-class ChunkTrace(BaseModel):
+class ChunkTrace(ContractModel):
     id: str
     source_type: str
     source: str | None = None
@@ -43,11 +49,25 @@ class ChunkTrace(BaseModel):
     reason: str
 
 
-class CompressionResponse(BaseModel):
+class CompressionResponse(ContractModel):
     compressed_text: str
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
-    saved_tokens: int
+    saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0)
     selected_chunks: list[ChunkTrace]
     dropped_chunks: list[ChunkTrace]
+
+
+class ErrorBody(BaseModel):
+    """Stable error payload for validation and execution failures."""
+
+    model_config = ConfigDict(extra="forbid")
+    code: str
+    message: str
+    details: list[dict] | None = None
+
+
+class ErrorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    error: ErrorBody
