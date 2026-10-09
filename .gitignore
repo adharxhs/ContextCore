@@ -1,0 +1,38 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+#codelens
+.codelens/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Data and models (document how to obtain them instead)
+data/raw/*
+data/processed/*
+ml/data/*
+ml/models/*
+!**/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime artifacts
+coverage.xml
+htmlcov/
+.coverage

@@ -1,0 +1,13 @@
+.git
+.env
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+node_modules
+frontend/node_modules
+data/raw
+data/processed
+ml/data
+ml/models

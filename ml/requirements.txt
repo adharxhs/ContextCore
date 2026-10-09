@@ -1,0 +1,4 @@
+# Engine dependencies. Pin exact, tested versions before submission.
+rank-bm25>=0.2,<1
+sentence-transformers>=3,<4
+tiktoken>=0.7,<1
