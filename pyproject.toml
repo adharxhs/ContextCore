@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-testpaths = ["backend/tests", "scripts"]
+testpaths = ["backend/tests", "ml/tests", "scripts"]
 
 [tool.ruff]
 line-length = 100
