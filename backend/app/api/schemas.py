@@ -55,6 +55,8 @@ class CompressionResponse(ContractModel):
     output_tokens: int = Field(ge=0)
     saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0)
+    budget_exceeded: bool
+    execution_mode: Literal["engine", "fallback"]
     selected_chunks: list[ChunkTrace]
     dropped_chunks: list[ChunkTrace]
 

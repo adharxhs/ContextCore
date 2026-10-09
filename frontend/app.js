@@ -36,12 +36,14 @@ function render(data, original, executionMode) {
   }).join("");
 
   const execution = $("execution");
-  execution.textContent = executionMode === "engine"
-    ? "Real engine result"
+  execution.textContent = data.budget_exceeded
+    ? "BUDGET EXCEEDED - PROTECTED CONTENT RETAINED"
+    : executionMode === "engine"
+      ? "Real engine result"
     : executionMode === "fallback"
       ? "OFFLINE FALLBACK - NOT A BENCHMARK RESULT"
       : "Execution mode unavailable - not a benchmark result";
-  execution.className = `execution ${executionMode}`;
+  execution.className = `execution ${executionMode}${data.budget_exceeded ? " budget-exceeded" : ""}`;
 }
 
 $("compress").addEventListener("click", async () => {

@@ -35,6 +35,8 @@ def test_compress_returns_trace() -> None:
         "output_tokens",
         "saved_tokens",
         "compression_ms",
+        "budget_exceeded",
+        "execution_mode",
         "selected_chunks",
         "dropped_chunks",
     }
@@ -49,6 +51,7 @@ def test_compress_returns_trace() -> None:
         "score",
         "reason",
     } <= set(body["selected_chunks"][0])
+    assert body["execution_mode"] == "engine"
 
 
 def test_invalid_budget_is_422() -> None:
@@ -83,6 +86,7 @@ def test_missing_engine_is_explicitly_marked_as_fallback() -> None:
     assert response.status_code == 200
     assert response.headers["X-ContextCore-Execution"] == "fallback"
     assert response.headers["X-ContextCore-Tokenizer"] == "heuristic"
+    assert response.json()["execution_mode"] == "fallback"
     assert (
         response.json()["selected_chunks"][-1]["original_index"]
         > response.json()["selected_chunks"][0]["original_index"]

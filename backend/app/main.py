@@ -41,6 +41,7 @@ def compress_context(request: CompressRequest, response: Response) -> dict:
     """Return selected evidence and a full provenance trace without an LLM call."""
     try:
         result, execution_mode = compress(request)
+        result["execution_mode"] = execution_mode
         validated = CompressionResponse.model_validate(result)
         response.headers["X-ContextCore-Execution"] = execution_mode
         if execution_mode == "fallback":
