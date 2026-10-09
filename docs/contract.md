@@ -89,10 +89,11 @@ Never silently remove system instructions, recent user messages, numbers, IDs, d
 
 The API validates all request fields with explicit Pydantic models. Invalid data returns a structured `422`; unsupported scorer returns `400`. No provider key is needed for `/v1/compress`.
 
-When the engine cannot be imported, the API may serve an offline fallback so the dashboard stays
-usable, but the response must be distinguishable from a real engine result (the dashboard labels
-fallback output). **Pending contract change:** add an `engine` field (`"ml"` or `"offline_fallback"`)
-to `CompressionResponse`; this needs Product and Engine sign-off before implementation.
+When the engine cannot be imported, the API serves an offline fallback so the dashboard stays
+usable. Real and fallback responses must be distinguishable: responses carry the header
+`X-ContextCore-Execution: engine` (real engine) or `X-ContextCore-Execution: fallback` (offline
+demo), and the dashboard must label fallback output as such. No provider key is needed for
+`/v1/compress`.
 
 ## 5. Evaluation interface
 

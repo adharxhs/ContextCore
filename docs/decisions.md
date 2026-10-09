@@ -8,3 +8,4 @@ One line each: `time | decision | reason`
 2026-10-09 | Evaluation records the verified engine tokenizer, not the nominal label | the engine silently falls back to a heuristic if tiktoken fails, which would falsify token counts and reduction
 2026-10-09 | Real benchmark results recorded honestly as failing the budget check (40/40 over budget) | acceptance must reflect the real engine; mock pipeline numbers must not be reported as performance
 2026-10-09 | CI gates lint on validation-owned paths and runs all test suites plus scripts/check_contract.py | Engine/Product lint failures are known (defect P2) and must not be silently disabled repo-wide
+2026-10-09 | Re-validate after engine fix 956f322 and record the update: reduction ~61%, overruns 10/40, recall 82-85% | results must always match the merged code, not the branch that produced them
