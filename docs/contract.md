@@ -35,13 +35,14 @@ The engine must preserve input order in the final compressed context. It must no
   "output_tokens": 950,
   "saved_tokens": 3250,
   "compression_ms": 84.2,
+  "budget_exceeded": false,
   "selected_chunks": [ <ChunkTrace>, ... ],
   "dropped_chunks": [ <ChunkTrace>, ... ]
 }
 ```
 
-`saved_tokens` equals `input_tokens - output_tokens` (clamped at zero when no compression is
-possible). `selected_chunks` and `dropped_chunks` are lists of `ChunkTrace` objects (below), not
+`saved_tokens` equals `input_tokens - output_tokens` (never negative). `budget_exceeded` is `true` when
+`output_tokens > token_budget`. `selected_chunks` and `dropped_chunks` are lists of `ChunkTrace` objects (below), not
 opaque ids. `compressed_text` is the selected chunks joined in original input order.
 
 Every chunk trace contains:

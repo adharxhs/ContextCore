@@ -2,17 +2,22 @@ import numpy as np
 from ml.src.scorers.base import BaseScorer
 
 _EMBED_MODEL = None
+_EMBED_MODEL_FAILURE_REASON = None
 
 
 def _get_embedding_model():
-    global _EMBED_MODEL
+    global _EMBED_MODEL, _EMBED_MODEL_FAILURE_REASON
     if _EMBED_MODEL is None:
         try:
             from fastembed import TextEmbedding
 
             _EMBED_MODEL = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-        except Exception:
+        except ImportError as e:
             _EMBED_MODEL = False
+            _EMBED_MODEL_FAILURE_REASON = f"fastembed not available: {str(e)}"
+        except Exception as e:
+            _EMBED_MODEL = False
+            _EMBED_MODEL_FAILURE_REASON = f"failed to load embedding model: {str(e)}"
     return _EMBED_MODEL
 
 
@@ -44,7 +49,6 @@ class DenseScorer(BaseScorer):
             except Exception:
                 pass
 
-        # Fallback to TF-IDF cosine similarity
         try:
             from sklearn.feature_extraction.text import TfidfVectorizer
             from sklearn.metrics.pairwise import cosine_similarity

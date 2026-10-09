@@ -3,17 +3,22 @@ from ml.src.scorers.base import BaseScorer
 from ml.src.scorers.hybrid import HybridScorer
 
 _CROSS_ENCODER_MODEL = None
+_CROSS_ENCODER_FAILURE_REASON = None
 
 
 def _get_cross_encoder():
-    global _CROSS_ENCODER_MODEL
+    global _CROSS_ENCODER_MODEL, _CROSS_ENCODER_FAILURE_REASON
     if _CROSS_ENCODER_MODEL is None:
         try:
             from fastembed.rerank.cross_encoder import TextCrossEncoder
 
             _CROSS_ENCODER_MODEL = TextCrossEncoder(model_name="BAAI/bge-reranker-base")
-        except Exception:
+        except ImportError as e:
             _CROSS_ENCODER_MODEL = False
+            _CROSS_ENCODER_FAILURE_REASON = f"fastembed reranker not available: {str(e)}"
+        except Exception as e:
+            _CROSS_ENCODER_MODEL = False
+            _CROSS_ENCODER_FAILURE_REASON = f"failed to load cross-encoder model: {str(e)}"
     return _CROSS_ENCODER_MODEL
 
 

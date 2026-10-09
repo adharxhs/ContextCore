@@ -50,13 +50,27 @@ def select_chunks(
 
         for idx, score in candidates:
             chunk = chunks[idx]
-            needed_parents = [
-                p_idx
-                for p_idx in chunk.qa_parent_indices
-                if p_idx not in selected_indices and p_idx not in duplicate_indices
-            ]
+            needed_indices: set[int] = set()
 
-            trial_indices = selected_indices | {idx} | set(needed_parents)
+            # Collect QA dependencies (both parent and child assistant answers)
+            for p_idx in chunk.qa_parent_indices:
+                if p_idx not in selected_indices and p_idx not in duplicate_indices:
+                    needed_indices.add(p_idx)
+
+            # If this is a user question, also check if there's a following assistant answer
+            if chunk.trace.source_type == "history" and "user" in (chunk.trace.source or ""):
+                for later_idx in range(idx + 1, len(chunks)):
+                    later_chunk = chunks[later_idx]
+                    if later_chunk.trace.source_type != "history":
+                        continue
+                    if "assistant" in (later_chunk.trace.source or ""):
+                        if later_idx not in selected_indices and later_idx not in duplicate_indices:
+                            # Only auto-include if the answer has decent relevance
+                            if later_chunk.trace.score > 0.3:
+                                needed_indices.add(later_idx)
+                        break
+
+            trial_indices = selected_indices | {idx} | needed_indices
             trial_tokens = _count_serialized_tokens(trial_indices)
 
             if trial_tokens <= token_budget:
@@ -67,10 +81,13 @@ def select_chunks(
                 else:
                     chunk.trace.reason += f"; selected (score: {score:.2f})"
 
-                for p_idx in needed_parents:
+                for p_idx in needed_indices:
                     p_chunk = chunks[p_idx]
                     p_chunk.trace.selected = True
-                    p_reason = f"retained as QA dependency for assistant turn '{chunk.trace.id}'"
+                    if p_idx in chunk.qa_parent_indices:
+                        p_reason = f"retained as QA dependency for assistant turn '{chunk.trace.id}'"
+                    else:
+                        p_reason = f"retained as QA context for user question '{chunk.trace.id}'"
                     if p_chunk.trace.reason:
                         p_chunk.trace.reason += f"; {p_reason}"
                     else:
@@ -94,7 +111,6 @@ def select_chunks(
         else:
             trace.selected = False
             if idx in duplicate_indices:
-                # Reason already populated during dedup
                 pass
             elif is_protected_overflow:
                 if not trace.reason:

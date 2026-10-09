@@ -96,6 +96,7 @@ def compress_context(
             output_tokens=0,
             saved_tokens=input_tokens,
             compression_ms=elapsed_ms,
+            budget_exceeded=False,
             selected_chunks=[],
             dropped_chunks=[],
         )
@@ -120,7 +121,8 @@ def compress_context(
 
     # 5. Output calculation
     output_tokens = count_tokens(selection.compressed_text)
-    saved_tokens = input_tokens - output_tokens
+    saved_tokens = max(0, input_tokens - output_tokens)
+    budget_exceeded = output_tokens > token_budget
     elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     return CompressionResult(
@@ -129,6 +131,7 @@ def compress_context(
         output_tokens=output_tokens,
         saved_tokens=saved_tokens,
         compression_ms=elapsed_ms,
+        budget_exceeded=budget_exceeded,
         selected_chunks=selection.selected_chunks,
         dropped_chunks=selection.dropped_chunks,
     )
