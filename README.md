@@ -61,12 +61,13 @@ http://localhost:5173) presents the same result visually.
 
 ## Validation status
 
-Real engine benchmark results (see `docs/evaluation.md`) currently **fail the budget acceptance
-check**: on 40/40 cases the compressed output exceeds the token budget and mean token reduction is
-~7%. Root cause is over-broad protection in the engine (87% of chunks classified protected, so the
-protected content alone exceeds every budget) and is assigned to the Engine owner. The harness
-detects and reports these overruns rather than hiding them. Do not cite the mock pipeline numbers
-(92.5% recall / 54% reduction) as engine performance.
+Real engine benchmark results (see `docs/evaluation.md`): the engine now reduces tokens by ~61%
+(target ~50%) with ~82-85% evidence recall, but **10/40 cases still exceed the token budget**
+(+4.4 tokens mean) and required evidence is lost on ~8 cases per scorer (QA-dependency and
+long-history scenarios). In addition, `ml/tests/test_dedup.py::test_near_dedup_threshold` fails on
+`main`. These Engine-lane issues are tracked as defects E1-residual/E4, E6, and E7. Scorer models
+and the manifest gap (`ml/requirements.txt`) are open issues too. Do not cite the mock pipeline
+numbers (92.5% recall / 54% reduction) as engine performance.
 
 ## Layout
 

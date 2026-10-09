@@ -51,6 +51,7 @@ whitespace estimate; budgets are far enough below input size to remain forcing.
 
 The 40 cases already satisfy the intended 30–50-case scope and cover the full taxonomy, so no cases
 were added during validation; assertions were strengthened instead (`scripts/test_evaluate.py`,
-`scripts/check_contract.py`). A real-engine run (`docs/evaluation.md`) currently exceeds the token
-budget on all 40 cases — i.e. protected-content overflow is exercised, but the engine fails budget
-acceptance (defect E1, Engine owner).
+`scripts/check_contract.py`). A real-engine run (`docs/evaluation.md`) after engine fix `956f322`
+reaches ~61% token reduction, but 10/40 cases still exceed the token budget and ~8 cases per scorer
+lose required evidence — budget and recall acceptance remain open (defects E1-residual/E4 and E6,
+Engine owner).
