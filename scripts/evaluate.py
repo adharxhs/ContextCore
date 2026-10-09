@@ -1,4 +1,4 @@
-"""Benchmark harness for Context Surgeon (lane 3: Validation & Lead).
+"""Benchmark harness for ContextCore (lane 3: Validation & Lead).
 
 Runs the version-controlled case set in ``data/benchmark/cases.jsonl`` through the
 engine at each case's fixed token budget, once per requested scorer, and reports:
@@ -9,8 +9,10 @@ engine at each case's fixed token budget, once per requested scorer, and reports
 * failures (exceptions, budget overruns, lost evidence).
 
 The harness never makes a generative LLM call. It imports only the engine's public
-interface, ``ml.src.inference.compress_context`` (see ``docs/contract.md``). Until the
-engine lands, ``--mock`` provides a deterministic keyword selector so the pipeline can be
+interface, ``ml.src.inference.compress_context`` (see ``docs/contract.md``). It also
+verifies which tokenizer the engine actually used (tiktoken ``cl100k_base`` versus the
+heuristic fallback) so recorded token counts are trustworthy. When the engine interface is
+absent, ``--mock`` provides a deterministic keyword selector so the pipeline can be
 exercised; mock output is clearly labelled and must not be reported as a result.
 
 Usage::
@@ -103,6 +105,33 @@ def load_engine() -> Callable[..., Any]:
             "harness only."
         ) from exc
     return compress_context
+
+
+def verify_tokenizer() -> tuple[bool, str | None, str]:
+    """Confirm the engine uses tiktoken ``cl100k_base`` and not the heuristic fallback.
+
+    ``input_tokens``/``output_tokens`` and therefore every reduction figure depend on
+    the engine tokenizer. If tiktoken cannot load, the engine silently falls back to a
+    character/word heuristic, so a recorded "cl100k_base" label would be wrong. The
+    benchmark records the *verified* encoder, not the nominal one.
+    """
+    repo_root = str(REPO_ROOT)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    try:
+        from ml.src.tokenizer import get_encoder  # type: ignore
+    except Exception as exc:  # pragma: no cover - environment dependent
+        return False, None, f"could not import ml.src.tokenizer ({exc!r})"
+    try:
+        encoder = get_encoder()
+    except Exception as exc:  # pragma: no cover - environment dependent
+        return False, None, f"get_encoder() failed ({exc!r})"
+    if encoder is None:
+        return False, None, "tiktoken unavailable; engine used the heuristic fallback"
+    name = getattr(encoder, "name", None)
+    if name == "cl100k_base":
+        return True, name, "tiktoken cl100k_base active"
+    return False, name, f"engine tokenizer is {name!r}, expected 'cl100k_base'"
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -241,6 +270,14 @@ def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "latency_p50_ms": round(percentile(latencies, 0.50), 3),
             "latency_p95_ms": round(percentile(latencies, 0.95), 3),
             "over_budget_cases": sum(1 for r in ok if r.get("over_budget")),
+            "budget_overrun_rate": round(
+                sum(1 for r in ok if r.get("over_budget")) / len(ok), 4
+            ) if ok else 0.0,
+            "mean_overrun_tokens": round(
+                sum(max(0, r["output_tokens"] - r.get("budget", r["output_tokens"])) for r in ok)
+                / len(ok),
+                1,
+            ) if ok else 0.0,
             "missed_evidence_cases": sum(1 for r in ok if r.get("missed_evidence")),
         }
     return summary
@@ -344,6 +381,13 @@ def print_summary(summary: dict[str, Any], engine_mode: str, tokenizer: str) -> 
             f"{s['latency_p50_ms']:>9.3f}{s['latency_p95_ms']:>9.3f}{s['over_budget_cases']:>6}"
         )
     print()
+    for scorer, s in summary.items():
+        if s.get("over_budget_cases"):
+            print(
+                f"  ! {scorer}: budget overrun on {s['over_budget_cases']}/{s['cases']} cases "
+                f"({_fmt_pct(s['budget_overrun_rate'])}), mean +{s['mean_overrun_tokens']} tokens"
+            )
+    print()
 
 
 # --------------------------------------------------------------------------- #
@@ -368,6 +412,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--min-recall", type=float, default=None, help="exit 1 if mean recall below this"
+    )
+    parser.add_argument(
+        "--require-tokenizer",
+        action="store_true",
+        help="exit 1 unless the engine tokenizer is verified as tiktoken cl100k_base",
     )
     return parser.parse_args(argv)
 
@@ -394,10 +443,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     compressor = _mock_compress if args.mock else load_engine()
     if args.mock:
+        tokenizer_verified, actual_tokenizer, tokenizer_detail = (
+            False,
+            None,
+            "mock mode: engine tokenizer not exercised",
+        )
         print(
             "!! MOCK MODE: numbers are placeholders and must not be reported as results.",
             file=sys.stderr,
         )
+    else:
+        tokenizer_verified, actual_tokenizer, tokenizer_detail = verify_tokenizer()
+        print(f"Tokenizer: {tokenizer_detail}")
+        if not tokenizer_verified:
+            print(
+                "!! WARNING: engine tokenizer is not tiktoken cl100k_base; token counts and "
+                "reduction figures use the fallback heuristic.",
+                file=sys.stderr,
+            )
 
     records: list[dict[str, Any]] = []
     for scorer in scorers:
@@ -411,6 +474,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "engine": engine_mode,
         "tokenizer": args.tokenizer,
+        "tokenizer_verified": tokenizer_verified,
+        "tokenizer_actual": actual_tokenizer,
+        "tokenizer_detail": tokenizer_detail,
         "cases_file": str(args.cases),
         "case_count": len(cases),
         "scorers": scorers,
@@ -424,6 +490,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"results written to {args.output}")
+
+    if args.require_tokenizer and not tokenizer_verified:
+        print(
+            f"FAIL: engine tokenizer not verified (nominal label {args.tokenizer!r})",
+            file=sys.stderr,
+        )
+        return 1
 
     if args.min_recall is not None:
         for scorer, s in summary.items():

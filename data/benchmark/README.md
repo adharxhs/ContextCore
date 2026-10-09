@@ -46,3 +46,11 @@ whitespace estimate; budgets are far enough below input size to remain forcing.
 - Every `required_evidence` item must be a substring of the case's own content.
 - Keep `token_budget` below input size (see the fixture test).
 - Run `python scripts/evaluate.py --mock` from the repo root after editing to sanity-check.
+
+## Validation status
+
+The 40 cases already satisfy the intended 30–50-case scope and cover the full taxonomy, so no cases
+were added during validation; assertions were strengthened instead (`scripts/test_evaluate.py`,
+`scripts/check_contract.py`). A real-engine run (`docs/evaluation.md`) currently exceeds the token
+budget on all 40 cases — i.e. protected-content overflow is exercised, but the engine fails budget
+acceptance (defect E1, Engine owner).

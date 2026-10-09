@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Goal
-Build **Context Surgeon**: a model-agnostic Python library and thin HTTP API that takes a system prompt, history, context blocks, and a query, then returns shorter, query-relevant context **without an extra generative LLM call**. A dashboard demonstrates the result; one real chat model is used only for full-context versus compressed-context evaluation.
+Build **ContextCore**: a model-agnostic Python library and thin HTTP API that takes a system prompt, history, context blocks, and a query, then returns shorter, query-relevant context **without an extra generative LLM call**. A dashboard demonstrates the result; one real chat model is used only for full-context versus compressed-context evaluation.
 
 ## Scope
 - Keep: protected spans; chunking; exact/near deduplication; BM25 + dense scoring; cross-encoder reranking; token-budget selection; original ordering; simple question-answer dependency retention; provenance trace.

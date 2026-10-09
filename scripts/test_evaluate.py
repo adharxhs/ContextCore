@@ -17,6 +17,7 @@ from scripts.evaluate import (
     percentile,
     run_case,
     summarize,
+    verify_tokenizer,
 )
 
 
@@ -94,6 +95,23 @@ def test_committed_cases_are_valid_and_span_taxonomy() -> None:
         "qa_dependency",
         "distractors",
     }
+    counts: dict[str, int] = {}
+    for case in cases:
+        counts[case["category"]] = counts.get(case["category"], 0) + 1
+    for category, count in counts.items():
+        assert count >= 4, f"category {category!r} has only {count} cases"
+
+
+def test_engine_tokenizer_is_tiktoken_cl100k_base() -> None:
+    verified, name, detail = verify_tokenizer()
+    assert verified, detail
+    assert name == "cl100k_base"
+
+
+def test_required_evidence_is_non_empty() -> None:
+    cases = load_cases(DEFAULT_CASES)
+    for case in cases:
+        assert case["required_evidence"], f"{case['id']} has no required evidence"
 
 
 def test_committed_evidence_is_grounded_and_budget_forces_reduction() -> None:
@@ -140,10 +158,10 @@ def test_run_case_with_mock_records_metrics() -> None:
 def test_summarize_rolls_up_by_scorer() -> None:
     records = [
         {"scorer": "hybrid", "ok": True, "evidence_recall": 1.0, "reduction": 0.5,
-         "input_tokens": 100, "output_tokens": 50, "compression_ms": 10.0,
+         "input_tokens": 100, "output_tokens": 50, "compression_ms": 10.0, "budget": 60,
          "over_budget": False, "missed_evidence": []},
         {"scorer": "hybrid", "ok": True, "evidence_recall": 0.5, "reduction": 0.4,
-         "input_tokens": 100, "output_tokens": 60, "compression_ms": 20.0,
+         "input_tokens": 100, "output_tokens": 60, "compression_ms": 20.0, "budget": 60,
          "over_budget": False, "missed_evidence": ["x"]},
     ]
     summary = summarize(records)["hybrid"]
@@ -152,3 +170,47 @@ def test_summarize_rolls_up_by_scorer() -> None:
     assert summary["mean_evidence_recall"] == pytest.approx(0.75)
     assert summary["full_recall_cases"] == 1
     assert summary["latency_p50_ms"] == pytest.approx(15.0)
+    assert summary["budget_overrun_rate"] == 0.0
+
+
+def test_run_case_detects_budget_overrun() -> None:
+    case = {
+        "id": "over-1",
+        "category": "planted_fact",
+        "system_prompt": "s",
+        "history": [],
+        "context_blocks": [],
+        "query": "q",
+        "token_budget": 10,
+        "required_evidence": [],
+    }
+
+    def too_big(**_: object) -> dict:
+        return {
+            "compressed_text": "kept text that is far too long",
+            "input_tokens": 50,
+            "output_tokens": 40,
+            "saved_tokens": 10,
+            "compression_ms": 1.0,
+            "selected_chunks": [],
+            "dropped_chunks": [],
+        }
+
+    record = run_case(case, "bm25", too_big)
+    assert record["ok"] is True
+    assert record["over_budget"] is True
+
+
+def test_summarize_reports_overrun_rate_and_tokens() -> None:
+    records = [
+        {"scorer": "bm25", "ok": True, "evidence_recall": 1.0, "reduction": 0.0,
+         "input_tokens": 100, "output_tokens": 80, "compression_ms": 1.0, "budget": 50,
+         "over_budget": True, "missed_evidence": []},
+        {"scorer": "bm25", "ok": True, "evidence_recall": 1.0, "reduction": 0.0,
+         "input_tokens": 100, "output_tokens": 40, "compression_ms": 1.0, "budget": 50,
+         "over_budget": False, "missed_evidence": []},
+    ]
+    summary = summarize(records)["bm25"]
+    assert summary["over_budget_cases"] == 1
+    assert summary["budget_overrun_rate"] == pytest.approx(0.5)
+    assert summary["mean_overrun_tokens"] == pytest.approx(15.0)
