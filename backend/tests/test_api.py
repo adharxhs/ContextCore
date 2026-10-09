@@ -36,6 +36,8 @@ def test_compress_returns_trace() -> None:
         "saved_tokens",
         "compression_ms",
         "budget_exceeded",
+        "token_budget",
+        "tokenizer",
         "execution_mode",
         "selected_chunks",
         "dropped_chunks",

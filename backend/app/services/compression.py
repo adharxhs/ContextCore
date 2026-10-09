@@ -133,6 +133,8 @@ def _offline_compress(request: CompressRequest) -> dict:
         "saved_tokens": max(0, input_tokens - spent),
         "compression_ms": round((perf_counter() - started) * 1000, 2),
         "budget_exceeded": spent > request.token_budget,
+        "token_budget": request.token_budget,
+        "tokenizer": "heuristic",
         "selected_chunks": selected,
         "dropped_chunks": dropped,
     }

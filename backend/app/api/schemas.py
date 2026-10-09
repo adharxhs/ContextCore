@@ -56,6 +56,8 @@ class CompressionResponse(ContractModel):
     saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0)
     budget_exceeded: bool
+    token_budget: int = Field(ge=1)
+    tokenizer: Literal["cl100k_base", "heuristic"]
     execution_mode: str
     selected_chunks: list[ChunkTrace]
     dropped_chunks: list[ChunkTrace]
