@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app import config
@@ -20,9 +20,11 @@ def health() -> dict[str, str]:
 
 
 @app.post("/v1/compress", response_model=CompressionResponse, tags=["compression"])
-def compress_context(request: CompressRequest) -> dict:
+def compress_context(request: CompressRequest, response: Response) -> dict:
     """Return selected evidence and a full provenance trace without an LLM call."""
     try:
-        return compress(request)
+        result, execution_mode = compress(request)
+        response.headers["X-ContextCore-Execution"] = execution_mode
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
