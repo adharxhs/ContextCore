@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>ContextCore</title><link rel="stylesheet" href="/styles.css"></head>
+<body><main><nav><div class="brand"><span class="mark">✦</span>Context<b>Core</b></div><span class="badge">Explainable compression</span></nav>
+<section class="hero"><p class="eyebrow">CONTEXT, WITH CONFIDENCE</p><h1>Keep the evidence.<br><i>Lose the clutter.</i></h1><p>Protect the details customers depend on while reducing context cost and latency.</p></section>
+<section class="workbench"><aside class="controls"><div class="section-title"><span>01</span> Configure request</div><label>Customer question<textarea id="query">How long will my refund take, and can I track it?</textarea></label><label>System instruction<textarea id="system">You are a helpful support assistant. Never invent account balances, dates, or policy terms.</textarea></label><div class="row"><label>Token budget<input id="budget" type="number" value="50" min="1"></label><label>Scoring<select id="scorer"><option value="hybrid">Hybrid</option><option value="bm25">BM25</option><option value="dense">Dense</option><option value="cross_encoder">Cross-encoder</option></select></label></div><label>Context blocks<textarea id="blocks">Refund policy: Eligible refunds are issued to the original payment method within 5 business days.
+
+Tracking: Customers receive an email confirmation and transaction reference once the refund is initiated.
+
+Summer campaign: Our support team won an internal service award last June.
+
+Office news: The support lounge added plants, a coffee corner, and a reading shelf for the team.
+
+Brand notes: The company palette uses deep green, warm cream, and a leaf motif across campaign materials.
+
+Order #CS-2048 was marked delivered on 2026-10-02.</textarea></label><button id="compress">Compress context <span>→</span></button><p id="status" role="status">Ready with an offline-safe demo.</p></aside>
+<section class="results"><div class="section-title"><span>02</span> Evidence decision</div><div class="metrics" id="metrics"><article><small>Input</small><strong>—</strong><em>tokens</em></article><article><small>Saved</small><strong>—</strong><em>tokens</em></article><article><small>Reduction</small><strong>—</strong><em>—</em></article><article><small>Latency</small><strong>—</strong><em>ms</em></article></div><div class="comparison"><article><header>ORIGINAL CONTEXT <small id="original-count"></small></header><pre id="original">Run compression to inspect the source context.</pre></article><article class="compressed"><header>RETAINED EVIDENCE <small id="retained-count"></small></header><pre id="compressed">Protected instructions and customer-critical facts will appear here.</pre></article></div><div class="trace"><header><div><p class="eyebrow">03 · FULL PROVENANCE</p><h2>Why each piece was kept</h2></div><div class="legend"><span class="dot protected"></span> Protected <span class="dot selected"></span> Selected <span class="dot dropped"></span> Dropped</div></header><div id="trace-body" class="trace-body"><p class="empty">Every keep or drop decision is recorded here.</p></div></div></section></section></main><script src="/app.js"></script></body></html>

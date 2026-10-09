@@ -11,4 +11,11 @@ services:
     volumes:
       - ./ml/models:/srv/ml/models
       - ./data:/srv/data
-  # The dashboard service is added after the Frontend owner selects its framework.
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
