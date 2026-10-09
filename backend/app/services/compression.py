@@ -66,15 +66,22 @@ def _offline_compress(request: CompressRequest) -> dict:
             "selected_chunks": selected, "dropped_chunks": dropped}
 
 
-def compress(request: CompressRequest) -> dict:
+def compress(request: CompressRequest) -> tuple[dict, str]:
+    """Run the public engine interface and return its execution mode.
+
+    The fallback exists only when the engine package is unavailable. A
+    present-but-failing engine must remain visible to callers instead of being
+    mistaken for a real engine result.
+    """
     if request.scorer not in SUPPORTED_SCORERS:
         choices = ", ".join(sorted(SUPPORTED_SCORERS))
         raise ValueError(f"Unsupported scorer '{request.scorer}'. Choose one of: {choices}.")
     try:
         engine = import_module("ml.src.inference")
         result = engine.compress_context(**request.model_dump())
-        return result.model_dump() if hasattr(result, "model_dump") else result
+        payload = result.model_dump() if hasattr(result, "model_dump") else result
+        return payload, "engine"
     except ModuleNotFoundError as exc:
         if exc.name != "ml.src.inference":
             raise
-        return _offline_compress(request)
+        return _offline_compress(request), "fallback"
