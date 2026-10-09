@@ -37,9 +37,9 @@ flowchart LR
     API -->|"CompressionResponse"| UI
 
     subgraph Evaluation["Reproducible validation — separate from runtime"]
-      FIXTURES["40 versioned benchmark cases\nrequired evidence + fixed budgets"]
+      FIXTURES["50 versioned benchmark cases\n40 core + 10 stress\nrequired evidence + fixed budgets"]
       RUNNER["scripts/evaluate.py\nBM25 / dense / hybrid / cross-encoder"]
-      METRICS["Evidence recall · token reduction\np50/p95 latency · failures"]
+      METRICS["Evidence recall (core/stress/category)\ntoken reduction · p50/p95 latency\ntokenizer · model mode · overruns · failures"]
       OPTIONAL["Optional same-model answer comparison\nfull context vs compressed context"]
       FIXTURES --> RUNNER --> METRICS
       RUNNER -. optional only .-> OPTIONAL

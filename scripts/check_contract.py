@@ -82,9 +82,28 @@ TAXONOMY = {
     "negations",
     "qa_dependency",
     "distractors",
+    # stress categories added by the Validation lane to cover known failures
+    "near_dedup",
+    "oversized_sentence",
+    "protected_overflow",
+    "protected_precision",
+}
+
+# Contract v2 metadata fields approved by Validation & Lead (see docs/contract.md).
+# They are validated strictly *when present*; while an owning lane has not shipped
+# them they are reported as PEND (approved, awaiting implementation), never as a
+# failure, so `main` stays green until the dependent work merges.
+PENDING_ENGINE_FIELDS = {
+    "token_budget": int,
+    "tokenizer": str,
+}
+PENDING_API_FIELDS = {
+    "budget_exceeded": bool,
+    "execution_mode": str,
 }
 
 failures: list[str] = []
+pending: list[str] = []
 
 
 def check(condition: bool, message: str) -> None:
@@ -92,6 +111,22 @@ def check(condition: bool, message: str) -> None:
     print(f"[{status}] {message}")
     if not condition:
         failures.append(message)
+
+
+def pend(message: str) -> None:
+    print(f"[PEND] {message}")
+    pending.append(message)
+
+
+def _field_type_ok(model: object, field: str, expected: type) -> tuple[bool, str]:
+    """Presence/type probe for a Pydantic model field; missing is not a failure here."""
+    fields = getattr(model, "model_fields", {})
+    if field not in fields:
+        return False, "missing"
+    annotation = fields[field].annotation
+    if annotation is expected:
+        return True, "present"
+    return False, f"present but annotated {annotation!r}, expected {expected.__name__}"
 
 
 def check_engine() -> None:
@@ -155,13 +190,49 @@ def check_docs() -> None:
         check("Context Surgeon" not in text, f"{path.name} has no stale 'Context Surgeon' name")
 
 
+def check_pending_fields() -> None:
+    """Validate approved contract-v2 metadata fields; missing ones are PEND, not FAIL."""
+    try:
+        from ml.src.types import CompressionResult
+    except Exception as exc:  # pragma: no cover - environment dependent
+        check(False, f"engine types import: {exc!r}")
+        return
+    for field, expected in PENDING_ENGINE_FIELDS.items():
+        ok, detail = _field_type_ok(CompressionResult, field, expected)
+        if ok:
+            check(True, f"engine CompressionResult exposes contract field {field!r}")
+        elif detail == "missing":
+            pend(f"engine CompressionResult is missing approved field {field!r} (owner: Engine)")
+        else:
+            check(False, f"engine field {field!r} {detail}")
+
+    try:
+        from backend.app.api.schemas import CompressionResponse
+    except Exception as exc:  # pragma: no cover - environment dependent
+        check(False, f"backend schema import: {exc!r}")
+        return
+    for field, expected in PENDING_API_FIELDS.items():
+        ok, detail = _field_type_ok(CompressionResponse, field, expected)
+        if ok:
+            check(True, f"API exposes contract field {field!r} ({expected.__name__})")
+        elif detail == "missing":
+            pend(f"API CompressionResponse is missing approved field {field!r} (owner: Product)")
+        else:
+            check(False, f"API field {field!r} {detail}")
+
+
 def main() -> int:
     check_engine()
     check_http_schema()
     check_tokenizer()
     check_cases()
     check_docs()
+    check_pending_fields()
     print()
+    if pending:
+        print(f"PEND: {len(pending)} approved contract field(s) awaiting implementation")
+        for item in pending:
+            print(f"      - {item}")
     if failures:
         print(f"FAIL: {len(failures)} contract check(s) failed")
         return 1
