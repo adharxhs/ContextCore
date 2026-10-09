@@ -34,6 +34,8 @@ def select_chunks(
         if chunk.trace.protected:
             selected_indices.add(idx)
             chunk.trace.selected = True
+            if not chunk.trace.reason:
+                chunk.trace.reason = "protected by rule"
 
     protected_tokens = _count_serialized_tokens(selected_indices)
 
@@ -106,21 +108,30 @@ def select_chunks(
             trace.selected = True
             if is_protected_overflow and trace.protected:
                 if "exceeding token budget" not in trace.reason:
-                    trace.reason += "; retained under protection rule despite exceeding token budget"
+                    if trace.reason:
+                        trace.reason += "; retained under protection rule despite exceeding token budget"
+                    else:
+                        trace.reason = "retained under protection rule despite exceeding token budget"
+            if not trace.reason:
+                trace.reason = f"selected (score: {trace.score:.2f})"
             selected_traces.append(trace)
         else:
             trace.selected = False
             if idx in duplicate_indices:
-                pass
+                if not trace.reason:
+                    trace.reason = f"dropped: duplicate (score: {trace.score:.2f})"
             elif is_protected_overflow:
                 if not trace.reason:
                     trace.reason = f"dropped: token budget exhausted by protected content (score: {trace.score:.2f})"
                 else:
-                    trace.reason += f"; dropped: token budget exhausted by protected content (score: {trace.score:.2f})"
-            elif not trace.reason:
-                trace.reason = f"dropped: token budget exhausted (score: {trace.score:.2f})"
+                    if "dropped:" not in trace.reason:
+                        trace.reason += f"; dropped: token budget exhausted by protected content (score: {trace.score:.2f})"
             else:
-                trace.reason += f"; dropped: token budget exhausted (score: {trace.score:.2f})"
+                if not trace.reason:
+                    trace.reason = f"dropped: token budget exhausted (score: {trace.score:.2f})"
+                else:
+                    if "dropped:" not in trace.reason:
+                        trace.reason += f"; dropped: token budget exhausted (score: {trace.score:.2f})"
             dropped_traces.append(trace)
 
     # 4. Order preservation: ensure selected and dropped chunks are sorted by original_index

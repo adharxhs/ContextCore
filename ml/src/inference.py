@@ -5,7 +5,7 @@ from ml.src.chunker import chunk_inputs
 from ml.src.dedup import deduplicate_chunks
 from ml.src.scorers.factory import get_scorer
 from ml.src.selector import select_chunks
-from ml.src.tokenizer import count_tokens
+from ml.src.tokenizer import count_tokens, get_tokenizer_mode
 from ml.src.types import (
     CompressionResult,
     ContextBlock,
@@ -97,6 +97,8 @@ def compress_context(
             saved_tokens=input_tokens,
             compression_ms=elapsed_ms,
             budget_exceeded=False,
+            token_budget=token_budget,
+            tokenizer=get_tokenizer_mode(),
             selected_chunks=[],
             dropped_chunks=[],
         )
@@ -132,6 +134,8 @@ def compress_context(
         saved_tokens=saved_tokens,
         compression_ms=elapsed_ms,
         budget_exceeded=budget_exceeded,
+        token_budget=token_budget,
+        tokenizer=get_tokenizer_mode(),
         selected_chunks=selection.selected_chunks,
         dropped_chunks=selection.dropped_chunks,
     )

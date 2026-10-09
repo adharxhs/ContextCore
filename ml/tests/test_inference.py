@@ -41,6 +41,8 @@ def test_compress_context_contract():
     assert result.saved_tokens == result.input_tokens - result.output_tokens
     assert result.compression_ms >= 0.0
     assert len(result.selected_chunks) > 0
+    assert result.token_budget == 120
+    assert result.tokenizer in ("cl100k_base", "heuristic")
 
     # Ensure system prompt or relevant context is preserved
     selected_texts = [c.text for c in result.selected_chunks]
@@ -55,6 +57,7 @@ def test_compress_context_contract():
         assert trace.token_count > 0
         assert isinstance(trace.selected, bool)
         assert isinstance(trace.reason, str)
+        assert len(trace.reason) > 0
 
 
 def test_preserves_original_order():
@@ -150,6 +153,8 @@ def test_empty_and_invalid_inputs():
     assert result.input_tokens == 0
     assert result.output_tokens == 0
     assert result.saved_tokens == 0
+    assert result.token_budget == 100
+    assert result.tokenizer in ("cl100k_base", "heuristic")
 
     # Invalid budget
     with pytest.raises(ValueError, match="token_budget must be a positive integer"):
@@ -187,3 +192,5 @@ def test_all_supported_scorers():
         assert res.output_tokens <= 80
         assert res.saved_tokens == res.input_tokens - res.output_tokens
         assert count_tokens(res.compressed_text) == res.output_tokens
+        assert res.token_budget == 80
+        assert res.tokenizer in ("cl100k_base", "heuristic")
