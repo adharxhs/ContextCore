@@ -26,14 +26,14 @@ python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-t
 - `--mock` exercises only the pipeline with a deterministic keyword selector. Mock output is labelled `mock (pipeline verification only)` and must not be reported as a result.
 - Exit code is non-zero when any case fails; `--min-recall <r>` fails if a scorer's mean recall is below `r`.
 
-## Recorded results (real engine)
+## Recorded results (real engine, after engine fix `956f322`)
 
 Command: `python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-tokenizer`
 
 | Field | Value |
 |---|---|
 | Date | 2026-10-09 |
-| Commit | `35b7d01` (merge of engine + product lanes) |
+| Commit | `a074088` (includes engine fix `956f322` merged via PR #6) |
 | Platform | Windows-11, Python 3.14.8 |
 | Tokenizer | `tiktoken cl100k_base` (verified active) |
 | Engine deps | `rank-bm25 0.2.2`, `fastembed 0.9.0`, `onnxruntime 1.31.0`, `numpy 2.5.3`, `scikit-learn 1.9.1` |
@@ -42,52 +42,58 @@ Command: `python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder -
 
 | scorer | errors | mean recall | full recall | reduction (micro) | p50 ms | p95 ms | over budget |
 |---|---|---|---|---|---|---|---|
-| bm25 | 0 | 96.2% | 37/40 | 7.1% | 0.750 | 1.291 | 40/40 |
-| dense | 0 | 96.2% | 37/40 | 7.1% | 31.725 | 45.579 | 40/40 |
-| hybrid | 0 | 96.2% | 37/40 | 7.1% | 31.785 | 49.671 | 40/40 |
-| cross_encoder | 0 | 96.2% | 37/40 | 7.1% | 119.730 | 227.723 | 40/40 |
+| bm25 | 0 | 82.5% | 32/40 | 61.8% | 0.995 | 1.729 | 10/40 |
+| dense | 0 | 85.0% | 33/40 | 61.3% | 32.275 | 46.467 | 10/40 |
+| hybrid | 0 | 82.5% | 32/40 | 61.1% | 33.165 | 52.204 | 10/40 |
+| cross_encoder | 0 | 81.2% | 32/40 | 62.1% | 120.885 | 173.932 | 10/40 |
 
 Latencies are a single run on the machine above and vary with load and with first-call model
-warm-up; the reduction, recall, and overrun figures are stable across repeated runs.
+warm-up; the reduction, recall, and overrun figures were stable across repeated runs.
 
-Missed-evidence cases (all scorers): `qadep-001`, `qadep-002`, `qadep-005` — in each, one of the two
-required QA turns (either the assistant answer or its preceding question) was dropped.
+Missed-evidence cases: heavily concentrated in `qa_dependency` (`qadep-001`, `qadep-003`,
+`qadep-004`, `qadep-005`), `long_history` (`hist-002`, `hist-003`, `hist-005`), and `redundant`
+(`dup-001`); `dense` additionally retains `hist-002` (7 missed cases), the other scorers miss 8.
+In each missed QA case, either the assistant answer or its preceding question is dropped.
 
 ### Interpretation
 
-- **The real engine fails budget acceptance.** Every scorer exceeds the token budget on 40/40 cases,
-  by ~81 tokens on average, and reduces input tokens by only ~7% instead of the intended ~50%.
-- **Scorer choice has no effect.** All four scorers produce identical outputs: 270/309 kept chunks
-  (87%) are classified protected, and the selector includes every protected chunk unconditionally.
-  In 40/40 cases the protected content alone exceeds the budget, so relevance ranking never gets to
-  drop anything. Root cause: over-broad protection patterns in `ml/src/protect.py` (`NUMBER_PATTERN`
-  matches any digit, `ID_PATTERN` matches any 8+ char uppercase token, `STRUCTURED_DATA_PATTERN`
-  matches any `key: value` line) combined with chunk-level (not span-level) protection and
-  unconditional protected selection in `ml/src/selector.py`.
-- Evidence recall is 96.2% only because almost nothing is dropped; it is not evidence that
-  compression preserves meaning.
+- **Engine fix `956f322` resolved the earlier blocker.** Protection patterns were narrowed, token
+  accounting was corrected, and the BM25 scorer was fixed. Token reduction is now ~61% (above the
+  ~50% target) and budget overruns dropped from 40/40 to 10/40 cases; the four scorers now produce
+  genuinely different rankings.
+- **Remaining budget overruns (10/40, identical across scorers):** `fact-001`, `fact-002`, `dup-002`,
+  `dup-003`, `dup-004`, `hist-003`, `hist-005`, `code-003`, `code-004`, `struct-001`. Mean overrun is
+  +4.4 tokens; the overshoot comes from protected content the selector keeps, so strict budget
+  semantics are still not met on these cases (defect E4/E1-residual).
+- **Evidence is now genuinely lost.** Mean recall is 81.2-85.0% — the compression drops required
+  evidence. Exact-evidence recall remains a retention baseline, not a semantic-quality claim.
+- **One Engine-lane test fails on `main`:** `ml/tests/test_dedup.py::test_near_dedup_threshold`
+  (near-duplicate sentences are not merged at the 0.88 threshold). CI now includes `ml/tests`, so
+  the suite currently fails.
 - **Do not report the mock numbers** (`data/processed/eval-mock.json`: 92.5% recall, 54% reduction)
   as engine performance. They describe the harness, not the engine.
 
-Reproduce the defect directly:
+Reproduce:
 
 ```
-python scripts/evaluate.py --scorers bm25 --require-tokenizer
+python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-tokenizer
 ```
 
-Expect `over` = 40/40 in the summary and a per-scorer overrun line.
+Expect `over` = 10/40 in the summary and an overrun line per scorer.
 
 ## Defects recorded
 
-| # | Severity | Owner | Defect |
-|---|---|---|---|
-| E1 | High | Engine | Protected chunks exceed the token budget on 100% of cases; budget is unenforceable because 87% of chunks are protected and all are selected. |
-| E2 | High | Engine | Protection patterns are far too broad (any digit/token/`key: value` line/negation), causing E1. |
-| E3 | Medium | Engine | `ml/requirements.txt` lists `sentence-transformers` (unused) but omits `fastembed`, `numpy`, `scikit-learn`, and `rapidfuzz`, which the code imports; Docker installs the wrong dependencies. |
-| E4 | Medium | Engine | `ml/src/selector.py` drops no protected chunk even when over budget; `output_tokens > token_budget` has no top-level signal in `CompressionResult`. |
-| E5 | Low | Engine | `ml/tests/test_inference.py:38` budget assertion is `output_tokens <= 120 or saved_tokens >= 0`, which is effectively always true and hides overruns. |
-| P1 | Medium | Product | Offline fallback responses are indistinguishable from real engine results; the dashboard cannot label fallback output (contract field `engine` pending). |
-| P2 | Low | Product | Product/Engine files fail the configured `ruff` lint (`E501`, `I001`); CI gates validation-owned paths only until fixed. |
+| # | Severity | Owner | Defect | Status |
+|---|---|---|---|---|
+| E1 | High → Med | Engine | Protected chunks exceeded the budget on 40/40 cases (pre-fix) | **Fixed** by `956f322`; residual 10/40 overruns (+4.4 tokens mean) remain |
+| E2 | High | Engine | Protection patterns far too broad (any digit / 8-char uppercase token / `key: value` line) | **Fixed** by `956f322` |
+| E3 | Medium | Engine | `ml/requirements.txt` lists unused `sentence-transformers`, omits `fastembed`/`numpy`/`scikit-learn`/`rapidfuzz`; Docker installs the wrong deps | Open |
+| E4 | Medium | Engine | No top-level over-budget signal in `CompressionResult`; protected chunks are never dropped even when over budget | Open |
+| E5 | Low | Engine | `ml/tests/test_inference.py` budget assertion was effectively always true | **Fixed** (now `output_tokens <= budget`) |
+| E6 | Medium | Engine | Evidence loss on `qa_dependency`/`long_history`/`redundant` cases: ~15-19% mean recall lost; QA-dependency retention and ranking drop the required turn | New, open |
+| E7 | High | Engine | `ml/tests/test_dedup.py::test_near_dedup_threshold` fails on `main` (near-duplicates at 0.88 not merged) | New, open |
+| P1 | Medium | Product | Offline fallback indistinguishable from real engine results | **Fixed** (`X-ContextCore-Execution` header + dashboard labels fallback) |
+| P2 | Low | Product | Product/Engine files fail `ruff` (`E501`, `I001`); CI gates validation-owned paths only | Open |
 
 ## End-to-end quality check
 
