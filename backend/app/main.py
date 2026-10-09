@@ -36,7 +36,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/v1/compress", response_model=CompressionResponse, tags=["compression"])
+@app.post(
+    "/v1/compress",
+    response_model=CompressionResponse,
+    response_model_exclude_none=True,
+    tags=["compression"],
+)
 def compress_context(request: CompressRequest, response: Response) -> dict:
     """Return selected evidence and a full provenance trace without an LLM call."""
     try:
@@ -46,7 +51,7 @@ def compress_context(request: CompressRequest, response: Response) -> dict:
         response.headers["X-ContextCore-Execution"] = execution_mode
         if execution_mode == "fallback":
             response.headers["X-ContextCore-Tokenizer"] = "heuristic"
-        return validated.model_dump()
+        return validated.model_dump(exclude_none=True)
     except CompressionServiceError as exc:
         return JSONResponse(
             status_code=exc.status_code,
@@ -61,4 +66,12 @@ def compress_context(request: CompressRequest, response: Response) -> dict:
                 "The engine returned a response outside the API contract.",
             ),
             headers={"X-ContextCore-Execution": "engine"},
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=500,
+            content=_error(
+                "compression_service_failed",
+                "The compression service could not complete the request.",
+            ),
         )

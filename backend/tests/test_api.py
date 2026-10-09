@@ -66,6 +66,19 @@ def test_unknown_scorer_is_400() -> None:
     assert response.json()["error"]["code"] == "unsupported_scorer"
 
 
+def test_cors_allows_browser_requests() -> None:
+    response = client.options(
+        "/v1/compress",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] in {"*", "http://localhost:5173"}
+
+
 def test_engine_failure_is_not_replaced_by_fallback() -> None:
     with patch(
         "backend.app.services.compression.import_module", side_effect=RuntimeError("engine failed")
@@ -75,6 +88,16 @@ def test_engine_failure_is_not_replaced_by_fallback() -> None:
     assert response.status_code == 503
     assert response.headers["X-ContextCore-Execution"] == "engine"
     assert response.json()["error"]["code"] == "engine_import_failed"
+
+
+def test_missing_engine_dependency_is_a_structured_503() -> None:
+    missing = ModuleNotFoundError("No module named 'fastembed'")
+    missing.name = "fastembed"
+    with patch("backend.app.services.compression.import_module", side_effect=missing):
+        response = client.post("/v1/compress", json=payload())
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "engine_dependency_unavailable"
 
 
 def test_missing_engine_is_explicitly_marked_as_fallback() -> None:
@@ -87,6 +110,8 @@ def test_missing_engine_is_explicitly_marked_as_fallback() -> None:
     assert response.headers["X-ContextCore-Execution"] == "fallback"
     assert response.headers["X-ContextCore-Tokenizer"] == "heuristic"
     assert response.json()["execution_mode"] == "fallback"
+    assert response.json()["tokenizer"] == "heuristic"
+    assert response.json()["budget_exceeded"] is False
     assert (
         response.json()["selected_chunks"][-1]["original_index"]
         > response.json()["selected_chunks"][0]["original_index"]
@@ -101,3 +126,50 @@ def test_malformed_engine_result_is_a_structured_502() -> None:
     assert response.status_code == 502
     assert response.headers["X-ContextCore-Execution"] == "engine"
     assert response.json()["error"]["code"] == "invalid_engine_response"
+
+
+def test_unreadable_engine_result_is_a_structured_502() -> None:
+    engine = SimpleNamespace(compress_context=lambda **_: [])
+    with patch("backend.app.services.compression.import_module", return_value=engine):
+        response = client.post("/v1/compress", json=payload())
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "malformed_engine_response",
+            "message": "The compression engine returned an unreadable response.",
+        }
+    }
+
+
+def test_budget_exceeded_engine_response_is_preserved() -> None:
+    engine_response = {
+        "compressed_text": "Protected text",
+        "input_tokens": 8,
+        "output_tokens": 6,
+        "saved_tokens": 2,
+        "compression_ms": 1.5,
+        "budget_exceeded": True,
+        "selected_chunks": [
+            {
+                "id": "system:0",
+                "source_type": "system",
+                "source": None,
+                "original_index": 0,
+                "text": "Protected text",
+                "token_count": 6,
+                "selected": True,
+                "protected": True,
+                "score": 1.0,
+                "reason": "protected system instruction exceeds budget",
+            }
+        ],
+        "dropped_chunks": [],
+    }
+    engine = SimpleNamespace(compress_context=lambda **_: engine_response)
+    with patch("backend.app.services.compression.import_module", return_value=engine):
+        response = client.post("/v1/compress", json=payload() | {"token_budget": 5})
+
+    assert response.status_code == 200
+    assert response.json()["budget_exceeded"] is True
+    assert response.json()["selected_chunks"][0]["reason"].endswith("exceeds budget")
