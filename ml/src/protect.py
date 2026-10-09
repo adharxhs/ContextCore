@@ -8,32 +8,53 @@ class ProtectionMatch(NamedTuple):
 
 
 CODE_BLOCK_PATTERN = re.compile(
-    r"(```[\s\S]*?```|`[^`\n]{4,}`|(?:\b(?:def|class|function|const|let|var|import|from|return|public|private|static)\s+\w+)|(?:\{\s*[\"'\w]+\s*:[\s\S]*?\})|(?:SELECT\s+.+\s+FROM\s+\w+))",
+    r"(```[\s\S]*?```|`[^`\n]+`|"
+    r"(?:^|\n)\s*(?:export\s+)?(?:async\s+)?(?:def|class|function|interface|type|enum)\s+[a-zA-Z_$]\w*|"
+    r"(?:^|\n)\s*(?:const|let|var)\s+[a-zA-Z_$]\w*\s*=|"
+    r"(?:^|\n)\s*(?:import\s+[a-zA-Z_]\w*|from\s+[a-zA-Z_]\w*\s+import)|"
+    r"(?:^|\n)\s*(?:return|yield)\s+[^\n]+|"
+    r"Traceback\s+\(most recent call last\):|(?:[A-Za-z0-9_]+(?:Error|Exception)):\s+|"
+    r"\bSELECT\s+[\s\S]+?\s+FROM\s+[a-zA-Z0-9_.]+\b)",
     re.IGNORECASE,
 )
 
 DATE_PATTERN = re.compile(
-    r"(\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,\s*\d{4})?\b)",
+    r"(\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|"
+    r"\b(?:\d{1,2}\s+)?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{1,2}(?:st|nd|rd|th)?)?(?:,?\s+\d{2,4})?\b|"
+    r"\b(?:\d{1,2}\s+May|May\s+\d{1,2}(?:st|nd|rd|th)?|May\s+\d{4})\b|"
+    r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|UTC|GMT|[A-Z]{3})\b)",
     re.IGNORECASE,
 )
 
 NUMBER_PATTERN = re.compile(
-    r"(\b(?:\$|€|£|¥)?\d+(?:,\d{3})*(?:\.\d+)?(?:%|px|ms|s|min|h|kg|g|m|km|MB|GB|TB|KB|k|M|B)?\b)",
+    r"((?:[\$€£¥]\s*\d+(?:,\d{3})*(?:\.\d+)?)|"
+    r"(?:\b\d+(?:\.\d+)?\s*(?:%|px|ms|s|min|MB|GB|TB|KB|kg|g|m|km|dollars?|cents?|USD|EUR)\b)|"
+    r"(?:\bv?\d+\.\d+(?:\.\d+)?\b)|"
+    r"(?:[<>=]=?\s*\d+(?:\.\d+)?))",
     re.IGNORECASE,
 )
 
 ID_PATTERN = re.compile(
-    r"(\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b|\b0x[0-9a-fA-F]+\b|\b(?:id|uuid|key|token|hash|sha|commit)[\s:=_]+['\"]?[a-zA-Z0-9_-]{4,}['\"]?|\b[A-Z0-9_-]{8,}\b)",
-    re.IGNORECASE,
+    r"(\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b|"
+    r"\b0x[0-9a-fA-F]+\b|\b[0-9a-fA-F]{32,64}\b|"
+    r"\b(?:id|uuid|key|token|hash|sha|commit|acct|order|ord|ticket|sup|usr|user)[\s:=_-]+['\"]?[a-zA-Z0-9_.-]{3,}['\"]?|"
+    r"\b[A-Z]{2,}[-_][A-Z0-9_-]+\b|\b[A-Z]+-[0-9]+\b|"
+    r"\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b|\b[a-zA-Z0-9]+_[a-zA-Z0-9_]+\b)",
 )
 
 NEGATION_PATTERN = re.compile(
-    r"\b(not|no|never|none|neither|nor|without|hardly|scarcely|cannot|can't|won't|don't|doesn't|didn't|shouldn't|mustn't|wouldn't|couldn't)\b",
+    r"\b(not|no|never|none|neither|nor|without|hardly|scarcely|cannot|can't|won't|don't|doesn't|didn't|shouldn't|mustn't|wouldn't|couldn't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't)\b",
     re.IGNORECASE,
 )
 
 STRUCTURED_DATA_PATTERN = re.compile(
-    r"(\|[^\n]+\|\n\|[-:\s|]+\|\n\|[^\n]+\||^\s*[\w.-]+:\s+[^\n]+$|<[a-zA-Z0-9_-]+(\s+[^>]+)?>[\s\S]*?<\/[a-zA-Z0-9_-]+>|^\s*[-*]\s+\w+:)",
+    r"((?:^|\n)\|[^\n]+\|\n\|[-:\s|]+\|\n\|[^\n]+\||"
+    r"(?:\{[\s\S]*?\}|\[[\s\S]*?\])|"
+    r"(?:^|\n)\s*[\w.-]+:\s+[^\n]+|"
+    r"(?:^|\n)\[[a-zA-Z0-9_.-]+\]|"
+    r"(?:^|\n)\s*[-*]\s+\w+:|"
+    r"<[a-zA-Z0-9_-]+(\s+[^>]+)?>[\s\S]*?<\/[a-zA-Z0-9_-]+>|"
+    r"(?:^|\n)[^\n,]+,[^\n,]+,[^\n,]+(?:\n[^\n,]+,[^\n,]+,[^\n,]+)+)",
     re.MULTILINE,
 )
 
