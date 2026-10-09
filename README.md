@@ -18,6 +18,12 @@ uvicorn backend.app.main:app --reload
 
 Copy `.env.example` to `.env` only if environment overrides are needed. Provider credentials are evaluation-only and must never be required to run compression.
 
+## Evaluate
+```
+python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder
+```
+Runs the 40 version-controlled cases in `data/benchmark/cases.jsonl` through the engine at each case's token budget and reports evidence recall, token reduction, and p50/p95 latency. See `docs/evaluation.md`. Until the engine exposes `ml.src.inference.compress_context`, `--mock` exercises the pipeline with placeholder numbers.
+
 ## Layout
 | Path | Purpose |
 |---|---|
