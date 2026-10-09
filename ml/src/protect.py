@@ -2,9 +2,16 @@ import re
 from typing import NamedTuple
 
 
+class ProtectedSpan(NamedTuple):
+    start: int
+    end: int
+    reason: str
+
+
 class ProtectionMatch(NamedTuple):
     is_protected: bool
     reasons: list[str]
+    spans: list[ProtectedSpan]
 
 
 CODE_BLOCK_PATTERN = re.compile(
@@ -43,7 +50,7 @@ ID_PATTERN = re.compile(
 )
 
 NEGATION_PATTERN = re.compile(
-    r"\b(not|no|never|none|neither|nor|without|hardly|scarcely|cannot|can't|won't|don't|doesn't|didn't|shouldn't|mustn't|wouldn't|couldn't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't)\b",
+    r"\b(not|never|none|neither|nor|without|hardly|scarcely|cannot|can't|won't|don't|doesn't|didn't|shouldn't|mustn't|wouldn't|couldn't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't)\b",
     re.IGNORECASE,
 )
 
@@ -72,30 +79,45 @@ def detect_protected_spans(
     protect_structured: bool = True,
 ) -> ProtectionMatch:
     reasons: list[str] = []
+    spans: list[ProtectedSpan] = []
 
     if source_type == "system" and protect_system_prompt:
         reasons.append("system instructions protected by default")
+        spans.append(ProtectedSpan(0, len(text), "system instructions protected by default"))
 
     if is_recent_user_turn:
         reasons.append("recent user turn protected")
+        spans.append(ProtectedSpan(0, len(text), "recent user turn protected"))
 
     if protect_code and CODE_BLOCK_PATTERN.search(text):
         reasons.append("contains code or syntax block")
+        for match in CODE_BLOCK_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "code or syntax block"))
 
     if protect_dates and DATE_PATTERN.search(text):
         reasons.append("contains date/time entity")
+        for match in DATE_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "date/time entity"))
 
     if protect_ids and ID_PATTERN.search(text):
         reasons.append("contains identifier/hash/key")
+        for match in ID_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "identifier/hash/key"))
 
     if protect_structured and STRUCTURED_DATA_PATTERN.search(text):
         reasons.append("contains structured table/json/yaml")
+        for match in STRUCTURED_DATA_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "structured table/json/yaml"))
 
     if protect_negations and NEGATION_PATTERN.search(text):
         reasons.append("contains critical negation")
+        for match in NEGATION_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "critical negation"))
 
     if protect_numbers and NUMBER_PATTERN.search(text):
         reasons.append("contains numeric value/metric")
+        for match in NUMBER_PATTERN.finditer(text):
+            spans.append(ProtectedSpan(match.start(), match.end(), "numeric value/metric"))
 
     is_protected = len(reasons) > 0
-    return ProtectionMatch(is_protected=is_protected, reasons=reasons)
+    return ProtectionMatch(is_protected=is_protected, reasons=reasons, spans=spans)

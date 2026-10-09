@@ -46,7 +46,8 @@ class CompressionResult(BaseModel):
     compressed_text: str
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
-    saved_tokens: int
+    saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0.0)
+    budget_exceeded: bool = False
     selected_chunks: list[ChunkTrace] = Field(default_factory=list)
     dropped_chunks: list[ChunkTrace] = Field(default_factory=list)
