@@ -3,10 +3,14 @@
 Runs the version-controlled case set in ``data/benchmark/cases.jsonl`` through the
 engine at each case's fixed token budget, once per requested scorer, and reports:
 
-* evidence recall (required evidence that survived compression),
+* evidence recall (required evidence that survived compression), split into the
+  stable core taxonomy and the stress categories (near-dedup, oversized sentence,
+  protected-only overflow, protected-span precision),
 * input-token reduction,
 * p50 / p95 compression latency,
-* failures (exceptions, budget overruns, lost evidence).
+* budget overruns, classified by whether protected content caused them,
+* model mode for dense/cross-encoder scorers (ONNX model loaded vs silent fallback),
+* failures (exceptions, lost evidence).
 
 The harness never makes a generative LLM call. It imports only the engine's public
 interface, ``ml.src.inference.compress_context`` (see ``docs/contract.md``). It also
@@ -19,6 +23,7 @@ Usage::
 
     python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder
     python scripts/evaluate.py --mock --output data/processed/eval-mock.json
+    python scripts/evaluate.py --scorers bm25 --require-tokenizer --fail-on-degraded
 """
 
 from __future__ import annotations
@@ -43,6 +48,26 @@ SCORERS = ("bm25", "dense", "hybrid", "cross_encoder")
 DEFAULT_SCORERS = ("hybrid",)
 # Must match the tokenizer configured in the engine; recorded with every result.
 DEFAULT_TOKENIZER = "cl100k_base (tiktoken)"
+
+# Original eight taxonomy buckets form the stable "core" benchmark. The stress
+# categories were added by the Validation lane to cover known failure modes; they
+# are reported separately so they do not silently move the core trend line.
+CORE_CATEGORIES = (
+    "planted_fact",
+    "redundant",
+    "long_history",
+    "code_ids_numbers",
+    "structured_data",
+    "negations",
+    "qa_dependency",
+    "distractors",
+)
+STRESS_CATEGORIES = (
+    "near_dedup",
+    "oversized_sentence",
+    "protected_overflow",
+    "protected_precision",
+)
 
 CASE_FIELDS = (
     "id",
@@ -132,6 +157,39 @@ def verify_tokenizer() -> tuple[bool, str | None, str]:
     if name == "cl100k_base":
         return True, name, "tiktoken cl100k_base active"
     return False, name, f"engine tokenizer is {name!r}, expected 'cl100k_base'"
+
+
+def detect_scorer_mode(scorer: str) -> str:
+    """Report whether a dense/reranking scorer loaded its ONNX model or degraded.
+
+    The engine's dense and cross-encoder scorers silently fall back to TF-IDF and
+    hybrid ranking when FastEmbed or the model cache is unavailable. That changes
+    what is being measured, so the run records ``full``, ``degraded``, or ``unknown``
+    rather than reporting degraded numbers as model-backed results.
+    """
+    if scorer == "bm25":
+        return "n/a (lexical only)"
+    try:
+        if scorer in ("dense", "hybrid"):
+            from ml.src.scorers import dense as dense_mod  # type: ignore
+
+            value = dense_mod._EMBED_MODEL
+            reason = dense_mod._EMBED_MODEL_FAILURE_REASON
+        elif scorer == "cross_encoder":
+            from ml.src.scorers import cross_encoder as ce_mod  # type: ignore
+
+            value = ce_mod._CROSS_ENCODER_MODEL
+            reason = ce_mod._CROSS_ENCODER_FAILURE_REASON
+        else:  # pragma: no cover - SCORERS is fixed
+            return "unknown"
+    except Exception:  # pragma: no cover - environment dependent
+        return "unknown"
+    if value is None:
+        return "unknown (scorer not exercised)"
+    if value is False:
+        suffix = f": {reason}" if reason else " (model unavailable, fell back)"
+        return f"degraded{suffix}"
+    return "full (onnx model loaded)"
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -226,6 +284,25 @@ def run_case(case: dict[str, Any], scorer: str, compressor: Callable[..., Any]) 
     recall, missed = evidence_recall(compressed_text, case["required_evidence"])
     reduction = (1.0 - output_tokens / input_tokens) if input_tokens else 0.0
 
+    explicit_over = _get(result, "budget_exceeded", None)
+    if explicit_over is None:
+        explicit_over = _get(result, "over_budget", None)  # retired legacy name
+    over_budget = (
+        bool(explicit_over)
+        if explicit_over is not None
+        else output_tokens > case["token_budget"]
+    )
+    over_budget_source = "engine (budget_exceeded)" if explicit_over is not None else "computed"
+
+    selected_traces = _get(result, "selected_chunks", None) or []
+    dropped_traces = _get(result, "dropped_chunks", None) or []
+    protected_selected_tokens = sum(
+        int(_get(c, "token_count", 0) or 0) for c in selected_traces if _get(c, "protected", False)
+    )
+    duplicates_dropped = sum(
+        1 for c in dropped_traces if "duplicate" in str(_get(c, "reason", "")).lower()
+    )
+
     record.update(
         {
             "ok": True,
@@ -237,7 +314,11 @@ def run_case(case: dict[str, Any], scorer: str, compressor: Callable[..., Any]) 
             "reduction": round(reduction, 4),
             "compression_ms": round(float(compression_ms), 3),
             "wall_ms": round(wall_ms, 3),
-            "over_budget": output_tokens > case["token_budget"],
+            "over_budget": over_budget,
+            "over_budget_source": over_budget_source,
+            "over_budget_protected": bool(over_budget and protected_selected_tokens > 0),
+            "protected_selected_tokens": protected_selected_tokens,
+            "duplicates_dropped": duplicates_dropped,
             "selected": _chunk_count(_get(result, "selected_chunks")),
             "dropped": _chunk_count(_get(result, "dropped_chunks")),
         }
@@ -246,7 +327,7 @@ def run_case(case: dict[str, Any], scorer: str, compressor: Callable[..., Any]) 
 
 
 def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate per-scorer metrics."""
+    """Aggregate per-scorer metrics, including a core/stress and per-category split."""
     summary: dict[str, Any] = {}
     scorers = sorted({r["scorer"] for r in records})
     for scorer in scorers:
@@ -256,10 +337,35 @@ def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
         total_output = sum(r["output_tokens"] for r in ok)
         latencies = [r["compression_ms"] for r in ok]
         recalls = [r["evidence_recall"] for r in ok]
+
+        by_category: dict[str, dict[str, Any]] = {}
+        for row in ok:
+            category = row.get("category", "unknown")
+            bucket = by_category.setdefault(
+                category, {"cases": 0, "full_recall": 0, "recall_sum": 0.0, "over_budget": 0}
+            )
+            bucket["cases"] += 1
+            bucket["full_recall"] += 1 if row.get("evidence_recall") == 1.0 else 0
+            bucket["recall_sum"] += row.get("evidence_recall", 0.0)
+            bucket["over_budget"] += 1 if row.get("over_budget") else 0
+        for bucket in by_category.values():
+            bucket["mean_recall"] = (
+                round(bucket["recall_sum"] / bucket["cases"], 4) if bucket["cases"] else 0.0
+            )
+
+        core = [r for r in ok if r.get("category") in CORE_CATEGORIES]
+        stress = [r for r in ok if r.get("category") in STRESS_CATEGORIES]
+
         summary[scorer] = {
             "cases": len(rows),
             "errors": len(rows) - len(ok),
             "mean_evidence_recall": round(sum(recalls) / len(recalls), 4) if recalls else 0.0,
+            "core_mean_evidence_recall": round(
+                sum(r["evidence_recall"] for r in core) / len(core), 4
+            ) if core else 0.0,
+            "stress_mean_evidence_recall": round(
+                sum(r["evidence_recall"] for r in stress) / len(stress), 4
+            ) if stress else 0.0,
             "full_recall_cases": sum(1 for r in recalls if r == 1.0),
             "token_reduction_micro": round(
                 1.0 - total_output / total_input, 4
@@ -270,6 +376,7 @@ def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "latency_p50_ms": round(percentile(latencies, 0.50), 3),
             "latency_p95_ms": round(percentile(latencies, 0.95), 3),
             "over_budget_cases": sum(1 for r in ok if r.get("over_budget")),
+            "over_budget_protected_cases": sum(1 for r in ok if r.get("over_budget_protected")),
             "budget_overrun_rate": round(
                 sum(1 for r in ok if r.get("over_budget")) / len(ok), 4
             ) if ok else 0.0,
@@ -279,6 +386,7 @@ def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
                 1,
             ) if ok else 0.0,
             "missed_evidence_cases": sum(1 for r in ok if r.get("missed_evidence")),
+            "by_category": by_category,
         }
     return summary
 
@@ -365,7 +473,12 @@ def _fmt_pct(value: float) -> str:
     return f"{value * 100:5.1f}%"
 
 
-def print_summary(summary: dict[str, Any], engine_mode: str, tokenizer: str) -> None:
+def print_summary(
+    summary: dict[str, Any],
+    engine_mode: str,
+    tokenizer: str,
+    scorer_modes: dict[str, str] | None = None,
+) -> None:
     print()
     print(f"Engine: {engine_mode}   Tokenizer(nominal): {tokenizer}")
     header = (
@@ -381,11 +494,31 @@ def print_summary(summary: dict[str, Any], engine_mode: str, tokenizer: str) -> 
             f"{s['latency_p50_ms']:>9.3f}{s['latency_p95_ms']:>9.3f}{s['over_budget_cases']:>6}"
         )
     print()
+    if scorer_modes:
+        for scorer, mode in scorer_modes.items():
+            print(f"  model mode [{scorer}]: {mode}")
+        print()
+    for scorer, s in summary.items():
+        print(
+            f"  recall [{scorer}]: core {_fmt_pct(s['core_mean_evidence_recall'])}"
+            f" | stress {_fmt_pct(s['stress_mean_evidence_recall'])}"
+            f" | all {_fmt_pct(s['mean_evidence_recall'])}"
+        )
+    print()
+    for scorer, s in summary.items():
+        cats = s.get("by_category", {})
+        line = "  ".join(
+            f"{c}:{_fmt_pct(cats[c]['mean_recall'])}" for c in STRESS_CATEGORIES if c in cats
+        )
+        if line:
+            print(f"  stress categories [{scorer}]: {line}")
+    print()
     for scorer, s in summary.items():
         if s.get("over_budget_cases"):
             print(
                 f"  ! {scorer}: budget overrun on {s['over_budget_cases']}/{s['cases']} cases "
-                f"({_fmt_pct(s['budget_overrun_rate'])}), mean +{s['mean_overrun_tokens']} tokens"
+                f"({_fmt_pct(s['budget_overrun_rate'])}), mean +{s['mean_overrun_tokens']} tokens, "
+                f"protected-linked {s['over_budget_protected_cases']}/{s['over_budget_cases']}"
             )
     print()
 
@@ -417,6 +550,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--require-tokenizer",
         action="store_true",
         help="exit 1 unless the engine tokenizer is verified as tiktoken cl100k_base",
+    )
+    parser.add_argument(
+        "--fail-on-degraded",
+        action="store_true",
+        help="exit 1 if a dense/cross-encoder scorer silently degraded to a fallback ranker",
+    )
+    parser.add_argument(
+        "--fail-on-over-budget",
+        action="store_true",
+        help="exit 1 if any case output exceeds its token budget",
     )
     return parser.parse_args(argv)
 
@@ -467,18 +610,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         for case in cases:
             records.append(run_case(case, scorer, compressor))
 
+    scorer_modes = {} if args.mock else {scorer: detect_scorer_mode(scorer) for scorer in scorers}
     summary = summarize(records)
-    print_summary(summary, engine_mode, args.tokenizer)
+    print_summary(summary, engine_mode, args.tokenizer, scorer_modes)
 
+    execution_mode = "mock" if args.mock else "engine"
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "engine": engine_mode,
+        "execution_mode": execution_mode,
         "tokenizer": args.tokenizer,
         "tokenizer_verified": tokenizer_verified,
         "tokenizer_actual": actual_tokenizer,
         "tokenizer_detail": tokenizer_detail,
+        "scorer_modes": scorer_modes,
         "cases_file": str(args.cases),
         "case_count": len(cases),
+        "core_categories": list(CORE_CATEGORIES),
+        "stress_categories": list(STRESS_CATEGORIES),
         "scorers": scorers,
         "budget_override": args.budget,
         "python": platform.python_version(),
@@ -507,6 +656,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
+
+    if args.fail_on_degraded:
+        degraded = [s for s, mode in scorer_modes.items() if mode.startswith("degraded")]
+        unknown = [s for s, mode in scorer_modes.items() if mode.startswith("unknown")]
+        if degraded or unknown:
+            print(
+                f"FAIL: scorer model mode is not full (degraded={degraded}, unknown={unknown}); "
+                "model-backed numbers cannot be claimed.",
+                file=sys.stderr,
+            )
+            return 1
+
+    if args.fail_on_over_budget:
+        over = sum(s["over_budget_cases"] for s in summary.values())
+        if over:
+            print(f"FAIL: {over} case(s) exceeded the token budget", file=sys.stderr)
+            return 1
 
     total_errors = sum(s["errors"] for s in summary.values())
     return 1 if total_errors else 0
