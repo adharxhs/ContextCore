@@ -91,6 +91,9 @@ def load_cases(path: Path) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------- #
 def load_engine() -> Callable[..., Any]:
     """Import the public engine entry point defined in the contract."""
+    repo_root = str(REPO_ROOT)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
     try:
         from ml.src.inference import compress_context  # type: ignore
     except Exception as exc:  # pragma: no cover - environment dependent
