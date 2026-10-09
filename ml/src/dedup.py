@@ -63,7 +63,7 @@ def deduplicate_chunks(
             if fuzz is not None:
                 sim = fuzz.ratio(norm, _normalize_text(prev_chunk.trace.text)) / 100.0
             else:
-                sim = _jaccard_similarity(norm, prev_chunk.trace.text)
+                sim = _jaccard_similarity(chunk.trace.text, prev_chunk.trace.text)
 
             if sim >= near_dup_threshold:
                 is_near_dup = True
