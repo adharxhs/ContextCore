@@ -137,7 +137,11 @@ def _field_type_ok(model: object, field: str, expected: type | tuple) -> tuple[b
         annotation_str = str(annotation)
         if "Literal" in annotation_str and expected_literal in annotation_str:
             return True, "present"
-        return False, f"present but annotated {annotation!r}, expected {expected_type.__name__} or {expected_literal}"
+        return (
+            False,
+            f"present but annotated {annotation!r}, "
+            f"expected {expected_type.__name__} or {expected_literal}",
+        )
     
     # Handle simple type checking
     if annotation is expected:
