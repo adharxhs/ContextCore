@@ -49,5 +49,7 @@ class CompressionResult(BaseModel):
     saved_tokens: int = Field(ge=0)
     compression_ms: float = Field(ge=0.0)
     budget_exceeded: bool = False
+    token_budget: int = Field(ge=1)
+    tokenizer: Literal["cl100k_base", "heuristic"]
     selected_chunks: list[ChunkTrace] = Field(default_factory=list)
     dropped_chunks: list[ChunkTrace] = Field(default_factory=list)

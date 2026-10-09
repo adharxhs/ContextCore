@@ -59,10 +59,10 @@ them itself.
   This only happens when protected content alone cannot fit; it is never `true` for ordinary
   relevance-driven selection. The earlier working name `over_budget` is retired in favour of the
   engine's shipped `budget_exceeded`.
-- `token_budget` (Engine, **pending**): the budget the engine enforced, echoed so that
+- `token_budget` (Engine, **implemented**): the budget the engine enforced, echoed so that
   `budget_exceeded` is self-describing and a consumer does not have to resend it.
-- `tokenizer` (Engine, **pending**): the encoder actually used, exactly one of `cl100k_base`
-  (tiktoken) or `heuristic` (fallback). The fallback must never be reported as `cl100k_base`.
+- `tokenizer` (Engine, **implemented**): the encoder actually used, `Literal["cl100k_base", "heuristic"]`.
+  The fallback must never be reported as `cl100k_base`.
 - `execution_mode` (**API only**, Product, **pending**): `engine` when the real engine served the
   request, `fallback` when the offline demo fallback did. It mirrors the `X-ContextCore-Execution`
   header and is included in the JSON body so HTTP clients that ignore headers still see it. The API

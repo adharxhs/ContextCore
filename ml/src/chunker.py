@@ -106,7 +106,7 @@ def chunk_inputs(
                 selected=False,
                 protected=prot.is_protected,
                 score=0.0,
-                reason="; ".join(prot.reasons) if prot.reasons else "system chunk",
+                reason="; ".join(prot.reasons) if prot.is_protected else "",
             )
             chunks.append(InternalChunk(trace=trace, qa_parent_indices=[]))
             global_idx += 1
@@ -151,7 +151,7 @@ def chunk_inputs(
                 selected=False,
                 protected=prot.is_protected,
                 score=0.0,
-                reason="; ".join(prot.reasons) if prot.reasons else f"history {msg.role} turn",
+                reason="; ".join(prot.reasons) if prot.is_protected else "",
             )
 
             qa_parents = list(last_user_chunk_indices) if msg.role == "assistant" else []
@@ -179,7 +179,7 @@ def chunk_inputs(
                 selected=False,
                 protected=prot.is_protected,
                 score=0.0,
-                reason="; ".join(prot.reasons) if prot.reasons else "context block",
+                reason="; ".join(prot.reasons) if prot.is_protected else "",
             )
             chunks.append(InternalChunk(trace=trace, qa_parent_indices=[]))
             global_idx += 1

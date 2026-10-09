@@ -93,9 +93,11 @@ TAXONOMY = {
 # They are validated strictly *when present*; while an owning lane has not shipped
 # them they are reported as PEND (approved, awaiting implementation), never as a
 # failure, so `main` stays green until the dependent work merges.
+# Note: tokenizer uses Literal type to enforce "exactly one of cl100k_base or heuristic"
+# per contract §2; the checker accepts either str or the Literal form.
 PENDING_ENGINE_FIELDS = {
     "token_budget": int,
-    "tokenizer": str,
+    "tokenizer": (str, "Literal['cl100k_base', 'heuristic']"),
 }
 PENDING_API_FIELDS = {
     "budget_exceeded": bool,
@@ -118,12 +120,30 @@ def pend(message: str) -> None:
     pending.append(message)
 
 
-def _field_type_ok(model: object, field: str, expected: type) -> tuple[bool, str]:
+def _field_type_ok(model: object, field: str, expected: type | tuple) -> tuple[bool, str]:
     """Presence/type probe for a Pydantic model field; missing is not a failure here."""
     fields = getattr(model, "model_fields", {})
     if field not in fields:
         return False, "missing"
     annotation = fields[field].annotation
+    
+    # Handle tuple of alternatives (e.g., for tokenizer: str or Literal)
+    if isinstance(expected, tuple):
+        expected_type, expected_literal = expected
+        # Check if it's the base type
+        if annotation is expected_type:
+            return True, "present"
+        # Check if it's a Literal type matching the expected form
+        annotation_str = str(annotation)
+        if "Literal" in annotation_str and expected_literal in annotation_str:
+            return True, "present"
+        return (
+            False,
+            f"present but annotated {annotation!r}, "
+            f"expected {expected_type.__name__} or {expected_literal}",
+        )
+    
+    # Handle simple type checking
     if annotation is expected:
         return True, "present"
     return False, f"present but annotated {annotation!r}, expected {expected.__name__}"
