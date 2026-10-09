@@ -1,6 +1,6 @@
-# Context Surgeon
+# ContextCore
 
-Context Surgeon is an explainable, query-aware context-compression layer for chat LLM requests. It selects relevant evidence under a token budget without using a separate generative LLM call to summarize every request.
+ContextCore is an explainable, query-aware context-compression layer for chat LLM requests. It selects relevant evidence under a token budget without using a separate generative LLM call to summarize every request.
 
 The hackathon MVP comprises a Python compression library, a thin FastAPI wrapper, a comparison dashboard, and a reproducible 30–50-case benchmark. The demo uses one real chat model only to compare answers from original versus compressed context.
 
