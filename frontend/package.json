@@ -2,6 +2,6 @@
   "name": "frontend",
   "private": true,
   "version": "0.0.0",
-  "description": "Context Surgeon comparison dashboard; framework scaffold intentionally deferred.",
-  "scripts": {}
+  "description": "ContextCore comparison dashboard; dependency-free static demo.",
+  "scripts": {"start": "npx serve . -l 5173"}
 }
