@@ -11,16 +11,40 @@ class InternalChunk(NamedTuple):
     qa_parent_indices: list[int]
 
 
+def _is_unbreakable_block(text: str) -> bool:
+    s = text.strip()
+    if s.startswith("```") and s.endswith("```"):
+        return True
+    if (s.startswith("{") and s.endswith("}")) or (s.startswith("[") and s.endswith("]")):
+        return True
+    if s.startswith("|") and "\n|" in s:
+        return True
+    if "Traceback (most recent call last):" in s:
+        return True
+    if re.search(r"^(?:def|class)\s+\w+", s, re.MULTILINE):
+        return True
+    if re.search(r"^apiVersion:\s+|^services:\s+", s, re.MULTILINE):
+        return True
+    return False
+
+
 def _split_text_into_pieces(text: str, max_chunk_tokens: int = 150) -> list[str]:
     text = text.strip()
     if not text:
         return []
+
+    if _is_unbreakable_block(text):
+        return [text]
 
     # 1. Paragraph split
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n+", text) if p.strip()]
     pieces: list[str] = []
 
     for para in paragraphs:
+        if _is_unbreakable_block(para):
+            pieces.append(para)
+            continue
+
         tokens = count_tokens(para)
         if tokens <= max_chunk_tokens:
             pieces.append(para)
@@ -109,9 +133,14 @@ def chunk_inputs(
                 piece,
                 source_type="history",
                 is_recent_user_turn=is_recent_user,
+                protect_code=False,
+                protect_numbers=False,
+                protect_dates=False,
+                protect_ids=False,
+                protect_negations=False,
+                protect_structured=False,
             )
-            prefix = f"{msg.role}: "
-            chunk_text = f"{prefix}{piece}"
+            chunk_text = piece
             trace = ChunkTrace(
                 id=f"history:{msg_idx}:{p_idx}",
                 source_type="history",
@@ -124,7 +153,7 @@ def chunk_inputs(
                 score=0.0,
                 reason="; ".join(prot.reasons) if prot.reasons else f"history {msg.role} turn",
             )
-            
+
             qa_parents = list(last_user_chunk_indices) if msg.role == "assistant" else []
             chunks.append(InternalChunk(trace=trace, qa_parent_indices=qa_parents))
             current_msg_chunk_indices.append(global_idx)

@@ -1,4 +1,6 @@
+import pytest
 from ml.src.inference import compress_context
+from ml.src.tokenizer import count_tokens
 from ml.src.types import ContextBlock, Message
 
 
@@ -35,7 +37,7 @@ def test_compress_context_contract():
     )
 
     assert result.input_tokens > 0
-    assert result.output_tokens <= 120 or result.saved_tokens >= 0
+    assert result.output_tokens <= 120
     assert result.saved_tokens == result.input_tokens - result.output_tokens
     assert result.compression_ms >= 0.0
     assert len(result.selected_chunks) > 0
@@ -71,3 +73,117 @@ def test_preserves_original_order():
     )
     indices = [c.original_index for c in result.selected_chunks]
     assert indices == sorted(indices)
+
+
+def test_accepts_dict_inputs():
+    result = compress_context(
+        system_prompt="You are a helper.",
+        history=[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there"}],
+        context_blocks=[{"id": "c1", "content": "Sample context block"}],
+        query="Hello",
+        token_budget=100,
+        scorer="dense",
+    )
+    assert result.input_tokens > 0
+    assert result.output_tokens <= 100
+    assert result.saved_tokens == result.input_tokens - result.output_tokens
+
+
+def test_qa_dependency_retention():
+    history = [
+        Message(role="user", content="What is the retention period for hot storage?"),
+        Message(role="assistant", content="Hot storage retention is 90 days."),
+        Message(role="user", content="Thanks for the answer."),
+    ]
+    result = compress_context(
+        system_prompt="Governance assistant.",
+        history=history,
+        context_blocks=[],
+        query="hot storage retention",
+        token_budget=50,
+        scorer="bm25",
+    )
+    selected_ids = [c.id for c in result.selected_chunks]
+    # If assistant message is selected, user question must be retained
+    if "history:1:0" in selected_ids:
+        assert "history:0:0" in selected_ids
+        trace_0 = next(c for c in result.selected_chunks if c.id == "history:0:0")
+        assert "QA dependency" in trace_0.reason or trace_0.selected
+
+
+def test_small_budget_and_protected_overflow():
+    system_prompt = "You are a specialized security agent."
+    history = [
+        Message(role="user", content="What is the token limit?"),
+    ]
+    # System prompt + recent user turn have ~15 tokens. Budget is 5.
+    result = compress_context(
+        system_prompt=system_prompt,
+        history=history,
+        context_blocks=[],
+        query="token limit",
+        token_budget=5,
+        scorer="bm25",
+    )
+    # Protected content must not be discarded
+    assert "specialized security agent" in result.compressed_text
+    assert "What is the token limit?" in result.compressed_text
+    assert result.output_tokens > 5
+    # Negative savings are not clamped
+    assert result.saved_tokens == result.input_tokens - result.output_tokens
+    # Reasons explain protection overflow
+    for trace in result.selected_chunks:
+        assert trace.protected
+        assert "retained under protection rule despite exceeding token budget" in trace.reason
+
+
+def test_empty_and_invalid_inputs():
+    # Empty inputs
+    result = compress_context(
+        system_prompt="",
+        history=[],
+        context_blocks=[],
+        query="anything",
+        token_budget=100,
+    )
+    assert result.compressed_text == ""
+    assert result.input_tokens == 0
+    assert result.output_tokens == 0
+    assert result.saved_tokens == 0
+
+    # Invalid budget
+    with pytest.raises(ValueError, match="token_budget must be a positive integer"):
+        compress_context(
+            system_prompt="test",
+            history=[],
+            context_blocks=[],
+            query="test",
+            token_budget=0,
+        )
+
+    with pytest.raises(ValueError, match="token_budget must be a positive integer"):
+        compress_context(
+            system_prompt="test",
+            history=[],
+            context_blocks=[],
+            query="test",
+            token_budget=-10,
+        )
+
+
+def test_all_supported_scorers():
+    for scorer in ["bm25", "dense", "hybrid", "cross_encoder"]:
+        res = compress_context(
+            system_prompt="Assistant prompt",
+            history=[Message(role="user", content="Question")],
+            context_blocks=[
+                ContextBlock(id="1", content="Answer about databases"),
+                ContextBlock(id="2", content="Unrelated baking recipe"),
+            ],
+            query="database configuration",
+            token_budget=80,
+            scorer=scorer,
+        )
+        assert res.output_tokens <= 80
+        assert res.saved_tokens == res.input_tokens - res.output_tokens
+        assert count_tokens(res.compressed_text) == res.output_tokens

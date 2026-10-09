@@ -19,12 +19,14 @@ def _compute_input_tokens(
     context_blocks: list[ContextBlock],
 ) -> int:
     parts: list[str] = []
-    if system_prompt:
-        parts.append(system_prompt)
+    if system_prompt and system_prompt.strip():
+        parts.append(system_prompt.strip())
     for m in history:
-        parts.append(f"{m.role}: {m.content}")
+        if m.content and m.content.strip():
+            parts.append(m.content.strip())
     for b in context_blocks:
-        parts.append(b.content)
+        if b.content and b.content.strip():
+            parts.append(b.content.strip())
 
     full_uncompressed = "\n\n".join(parts)
     return count_tokens(full_uncompressed)
@@ -118,7 +120,7 @@ def compress_context(
 
     # 5. Output calculation
     output_tokens = count_tokens(selection.compressed_text)
-    saved_tokens = max(0, input_tokens - output_tokens)
+    saved_tokens = input_tokens - output_tokens
     elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     return CompressionResult(
