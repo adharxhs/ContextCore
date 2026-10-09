@@ -240,7 +240,8 @@ def check_pending_fields() -> None:
     for field, expected in PENDING_API_FIELDS.items():
         ok, detail = _field_type_ok(CompressionResponse, field, expected)
         if ok:
-            check(True, f"API exposes contract field {field!r} ({expected.__name__})")
+            expected_name = expected.__name__ if hasattr(expected, "__name__") else str(expected)
+            check(True, f"API exposes contract field {field!r} ({expected_name})")
         elif detail == "missing":
             pend(f"API CompressionResponse is missing approved field {field!r} (owner: Product)")
         else:
