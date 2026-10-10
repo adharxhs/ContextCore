@@ -1,51 +1,48 @@
 # Acknowledgements
-Record every AI tool, library, model, and dataset used, with its license.
+This file records every model, library, dataset and AI tool used, with its license.
 
-## Runtime libraries
+## AI tools
 
-| Item | Type | License | Used for |
-|---|---|---|---|
-| `rank-bm25` | Library | Apache-2.0 | BM25 lexical relevance scoring |
-| `fastembed` | Library | Apache-2.0 | Dense ONNX embeddings and cross-encoder reranking |
-| `onnxruntime` | Library | MIT | ONNX inference backend used by FastEmbed |
-| `tiktoken` | Library | MIT | Token counting and boundary budgeting |
-| `rapidfuzz` | Library | MIT | Near-deduplication string similarity (preferred path) |
-| `numpy` | Library | BSD-3-Clause | Vector math in the scorers |
-| `scikit-learn` | Library | BSD-3-Clause | TF-IDF cosine fallback for the dense scorer |
-| `pydantic` | Library | MIT | Engine and API request/response models |
-| `fastapi` | Library | MIT | HTTP boundary for `/v1/compress` |
-| `uvicorn` | Library | BSD-3-Clause | ASGI server for the backend |
-| `httpx` | Library | BSD-3-Clause | Backend API tests (test dependency only) |
-| `pytest` | Library | MIT | Test runner (dev/test only) |
-| `ruff` | Library | MIT | Lint gate (dev/test only) |
+| Tool | Provider | Used for | Where |
+|------|----------|----------|-------|
+| Claude | Anthropic | Drafted the 16-case supplementary benchmark suite (2 cases per core category, repository schema) at the team's request; produced the evidence-position variants and the truncation-baseline script; helped write and update project documentation, including `docs/architecture.md` and this file. | `supplementary_benchmark/` (`cases_*.jsonl`, `results_*.json`, `make_cases.py`, `truncation_baselines.py`), `docs/architecture.md`, `docs/ACKNOWLEDGEMENTS.md` |
+
+Notes on the Claude entry:
+- Claude is not part of the compression path. ContextCore makes no generative LLM call when compressing.
+- The supplementary suite was run once at HEAD `53a0228` with the BM25 scorer, and no case was edited after seeing results. The evidence-position sweep was added after seeing that head truncation scored 100% on the original suite.
+- The cases were not independently human-labelled. See the limits stated in the submission report.
+- The team reviewed and is responsible for all submitted content.
 
 ## Models
 
-| Item | Type | License | Used for | Acquisition |
-|---|---|---|---|---|
-| `BAAI/bge-small-en-v1.5` (FastEmbed `Qdrant/bge-small-en-v1.5-onnx-Q`) | Model | MIT | Dense embedding scorer | Downloaded by FastEmbed on first use into its cache; see `data/README.md` |
-| `BAAI/bge-reranker-base` | Model | MIT | Cross-encoder reranker | Downloaded by FastEmbed on first use into its cache; see `data/README.md` |
+| Model | Used for | License |
+|-------|----------|---------|
+| BAAI/bge-small-en-v1.5 | Offline dense embeddings (dense and hybrid scorers) | MIT |
+| BAAI/bge-reranker-base | Cross-encoder reranking | MIT |
 
-`ml/models/` is a mounted, git-ignored location for cached model weights. Model weights are not
-committed; the BM25 scorer needs no model download at all.
+## Libraries and tools
 
-## Data and tooling
+| Library / tool | Used for | License |
+|----------------|----------|---------|
+| Python 3.12 | Runtime | PSF License |
+| FastAPI | HTTP API | MIT |
+| Uvicorn | ASGI server | BSD-3-Clause |
+| Pydantic v2 | Request/response validation | MIT |
+| NumPy | In-house BM25 Okapi scoring | BSD-3-Clause |
+| fastembed | Embedding and reranker runtime (ONNX) | Apache-2.0 |
+| tiktoken (`cl100k_base`) | Token counting and budget control | MIT |
+| rapidfuzz | Near-duplicate detection | MIT |
+| scikit-learn | TF-IDF fallback scoring | BSD-3-Clause |
+| nginx | Static dashboard server in Docker | BSD-2-Clause |
+| Docker / Docker Compose | Packaging and local run | Apache-2.0 |
+| pytest | Tests (79) | MIT |
+| Ruff | Linting | MIT |
+| GitHub Actions | CI | Service (GitHub terms) |
 
-| Item | Type | License | Used for |
-|---|---|---|---|
-| Benchmark cases `data/benchmark/cases.jsonl` | dataset (original, synthetic) | MIT (repo) | 50 query-aware compression scenarios authored in-repo; not derived from external material |
-| `scripts/evaluate.py` | tooling | MIT (repo) | Validation harness; imports only the engine entry point and `tiktoken` via the engine |
-| `scripts/check_contract.py` | tooling | MIT (repo) | Contract/interface/fixture consistency gate |
-| `scripts/smoke.sh` | tooling | MIT (repo) | Docker health and `/v1/compress` smoke check |
+## Datasets
 
-## Optional evaluation adapter
+No external datasets were used. All 50 benchmark cases (40 core, 10 stress) are original synthetic fixtures authored in this repository. The 16-case supplementary suite and its position variants are original synthetic cases drafted with Claude.
 
-The optional same-model full-vs-compressed answer comparison is **not configured or executed**. If
-added, the chat model, provider, license, and fixed generation settings must be recorded here before
-any answer-quality claim is made (see `docs/evaluation.md`).
+## Verification note
 
-## Engine manifest fix
-
-Engine PR #8 (`d92b77b`) corrected `ml/requirements.txt` to pin the actually-imported runtime
-dependencies (`fastembed`, `numpy`, `scikit-learn`, `rapidfuzz`, `tiktoken`, `pydantic`) and removed
-the unused `sentence-transformers` entry.
+Licenses above reflect the upstream projects' published licenses as generally known; confirm each against the installed package or model card before final submission.
