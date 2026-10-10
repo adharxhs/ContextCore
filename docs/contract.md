@@ -49,11 +49,8 @@ opaque ids. `compressed_text` is the selected chunks joined in original input or
 
 ### Reported metadata
 
-These fields make the result self-describing. `budget_exceeded` is implemented by the engine
-(`ml/src/types.py`, `ml/src/inference.py`). The remaining fields are approved by Validation & Lead
-and are still pending in their owning lane; `scripts/check_contract.py` reports the missing ones as
-`PEND` (approved, awaiting implementation) rather than failing, and the evaluation harness derives
-them itself.
+These fields make the result self-describing. They are implemented by the Engine and Product lanes
+and required by `scripts/check_contract.py`.
 
 - `budget_exceeded` (Engine, **implemented**): `true` if and only if `output_tokens > token_budget`.
   This only happens when protected content alone cannot fit; it is never `true` for ordinary

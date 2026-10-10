@@ -80,9 +80,9 @@ tokens by ~59% with 80-83% mean evidence recall (core 80-84%, stress 80%). 16/50
 the token budget, all protected-linked and signaled by the engine's explicit `budget_exceeded`
 field. Open Engine issues: evidence is lost on QA-dependency/long-history cases (E6), unprotected
 oversized sentences are dropped (E8), and irrelevant protected spans crowd out relevant evidence
-(E9). Fixed in Engine PR #8: the manifest gap (E3) and the over-budget signal (E4). Remaining
-contract gaps: Engine `token_budget`/`tokenizer`, Product `budget_exceeded`/`execution_mode` body
-fields, plus Product lint (P2). Do not cite the mock pipeline numbers as engine performance.
+(E9). Fixed in Engine PR #8: the manifest gap (E3) and the over-budget signal (E4). Engine
+`token_budget`/`tokenizer` metadata, the API's `budget_exceeded`/`execution_mode` body fields, and
+repository-wide lint are now verified. Do not cite the mock pipeline numbers as engine performance.
 Cross-lane blockers are tracked in `docs/integration-status.md`.
 
 ## Layout

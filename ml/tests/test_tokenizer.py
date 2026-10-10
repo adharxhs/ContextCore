@@ -1,4 +1,10 @@
-from ml.src.tokenizer import count_tokens, decode_tokens, encode_tokens, truncate_to_tokens, get_tokenizer_mode
+from ml.src.tokenizer import (
+    count_tokens,
+    decode_tokens,
+    encode_tokens,
+    get_tokenizer_mode,
+    truncate_to_tokens,
+)
 
 
 def test_count_tokens():

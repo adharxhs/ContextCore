@@ -165,12 +165,30 @@ def test_run_case_with_mock_records_metrics() -> None:
 
 def test_summarize_rolls_up_by_scorer() -> None:
     records = [
-        {"scorer": "hybrid", "ok": True, "evidence_recall": 1.0, "reduction": 0.5,
-         "input_tokens": 100, "output_tokens": 50, "compression_ms": 10.0, "budget": 60,
-         "over_budget": False, "missed_evidence": []},
-        {"scorer": "hybrid", "ok": True, "evidence_recall": 0.5, "reduction": 0.4,
-         "input_tokens": 100, "output_tokens": 60, "compression_ms": 20.0, "budget": 60,
-         "over_budget": False, "missed_evidence": ["x"]},
+        {
+            "scorer": "hybrid",
+            "ok": True,
+            "evidence_recall": 1.0,
+            "reduction": 0.5,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "compression_ms": 10.0,
+            "budget": 60,
+            "over_budget": False,
+            "missed_evidence": [],
+        },
+        {
+            "scorer": "hybrid",
+            "ok": True,
+            "evidence_recall": 0.5,
+            "reduction": 0.4,
+            "input_tokens": 100,
+            "output_tokens": 60,
+            "compression_ms": 20.0,
+            "budget": 60,
+            "over_budget": False,
+            "missed_evidence": ["x"],
+        },
     ]
     summary = summarize(records)["hybrid"]
     assert summary["cases"] == 2
@@ -211,12 +229,30 @@ def test_run_case_detects_budget_overrun() -> None:
 
 def test_summarize_reports_overrun_rate_and_tokens() -> None:
     records = [
-        {"scorer": "bm25", "ok": True, "evidence_recall": 1.0, "reduction": 0.0,
-         "input_tokens": 100, "output_tokens": 80, "compression_ms": 1.0, "budget": 50,
-         "over_budget": True, "missed_evidence": []},
-        {"scorer": "bm25", "ok": True, "evidence_recall": 1.0, "reduction": 0.0,
-         "input_tokens": 100, "output_tokens": 40, "compression_ms": 1.0, "budget": 50,
-         "over_budget": False, "missed_evidence": []},
+        {
+            "scorer": "bm25",
+            "ok": True,
+            "evidence_recall": 1.0,
+            "reduction": 0.0,
+            "input_tokens": 100,
+            "output_tokens": 80,
+            "compression_ms": 1.0,
+            "budget": 50,
+            "over_budget": True,
+            "missed_evidence": [],
+        },
+        {
+            "scorer": "bm25",
+            "ok": True,
+            "evidence_recall": 1.0,
+            "reduction": 0.0,
+            "input_tokens": 100,
+            "output_tokens": 40,
+            "compression_ms": 1.0,
+            "budget": 50,
+            "over_budget": False,
+            "missed_evidence": [],
+        },
     ]
     summary = summarize(records)["bm25"]
     assert summary["over_budget_cases"] == 1
@@ -230,9 +266,14 @@ def test_detect_scorer_mode_bm25_is_lexical() -> None:
 
 def test_run_case_prefers_engine_over_budget_field() -> None:
     case = {
-        "id": "ov-2", "category": "protected_overflow", "system_prompt": "s",
-        "history": [], "context_blocks": [], "query": "q",
-        "token_budget": 50, "required_evidence": [],
+        "id": "ov-2",
+        "category": "protected_overflow",
+        "system_prompt": "s",
+        "history": [],
+        "context_blocks": [],
+        "query": "q",
+        "token_budget": 50,
+        "required_evidence": [],
     }
 
     def engine_result(**_: object) -> dict:
@@ -244,8 +285,13 @@ def test_run_case_prefers_engine_over_budget_field() -> None:
             "compression_ms": 1.0,
             "budget_exceeded": True,
             "selected_chunks": [
-                {"id": "c", "protected": True, "token_count": 40,
-                 "selected": True, "reason": "protected overflow"},
+                {
+                    "id": "c",
+                    "protected": True,
+                    "token_count": 40,
+                    "selected": True,
+                    "reason": "protected overflow",
+                },
             ],
             "dropped_chunks": [],
         }
@@ -259,20 +305,30 @@ def test_run_case_prefers_engine_over_budget_field() -> None:
 
 def test_run_case_counts_duplicates_dropped() -> None:
     case = {
-        "id": "dup-x", "category": "near_dedup", "system_prompt": "s",
-        "history": [], "context_blocks": [], "query": "q",
-        "token_budget": 50, "required_evidence": [],
+        "id": "dup-x",
+        "category": "near_dedup",
+        "system_prompt": "s",
+        "history": [],
+        "context_blocks": [],
+        "query": "q",
+        "token_budget": 50,
+        "required_evidence": [],
     }
 
     def engine_result(**_: object) -> dict:
         return {
             "compressed_text": "kept",
-            "input_tokens": 100, "output_tokens": 40, "saved_tokens": 60,
+            "input_tokens": 100,
+            "output_tokens": 40,
+            "saved_tokens": 60,
             "compression_ms": 1.0,
             "selected_chunks": [],
             "dropped_chunks": [
-                {"id": "d1", "selected": False,
-                 "reason": "near-duplicate of chunk 'n1' (sim 0.95)"},
+                {
+                    "id": "d1",
+                    "selected": False,
+                    "reason": "near-duplicate of chunk 'n1' (sim 0.95)",
+                },
                 {"id": "d2", "selected": False, "reason": "token budget exhausted"},
             ],
         }
@@ -283,12 +339,32 @@ def test_run_case_counts_duplicates_dropped() -> None:
 
 def test_summarize_splits_core_and_stress() -> None:
     records = [
-        {"scorer": "bm25", "ok": True, "category": "planted_fact", "evidence_recall": 1.0,
-         "reduction": 0.5, "input_tokens": 100, "output_tokens": 50, "compression_ms": 1.0,
-         "budget": 60, "over_budget": False, "missed_evidence": []},
-        {"scorer": "bm25", "ok": True, "category": "protected_overflow", "evidence_recall": 0.5,
-         "reduction": 0.2, "input_tokens": 100, "output_tokens": 80, "compression_ms": 1.0,
-         "budget": 60, "over_budget": True, "missed_evidence": ["x"]},
+        {
+            "scorer": "bm25",
+            "ok": True,
+            "category": "planted_fact",
+            "evidence_recall": 1.0,
+            "reduction": 0.5,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "compression_ms": 1.0,
+            "budget": 60,
+            "over_budget": False,
+            "missed_evidence": [],
+        },
+        {
+            "scorer": "bm25",
+            "ok": True,
+            "category": "protected_overflow",
+            "evidence_recall": 0.5,
+            "reduction": 0.2,
+            "input_tokens": 100,
+            "output_tokens": 80,
+            "compression_ms": 1.0,
+            "budget": 60,
+            "over_budget": True,
+            "missed_evidence": ["x"],
+        },
     ]
     summary = summarize(records)["bm25"]
     assert summary["core_mean_evidence_recall"] == 1.0

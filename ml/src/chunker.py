@@ -123,7 +123,7 @@ def chunk_inputs(
     for msg_idx, msg in enumerate(history):
         if not msg.content.strip():
             continue
-        is_recent_user = (msg_idx == last_user_msg_idx)
+        is_recent_user = msg_idx == last_user_msg_idx
         msg_pieces = _split_text_into_pieces(msg.content, max_chunk_tokens=max_chunk_tokens)
 
         current_msg_chunk_indices: list[int] = []

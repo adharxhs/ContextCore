@@ -1,4 +1,5 @@
 import pytest
+
 from ml.src.scorers.bm25 import BM25Scorer
 from ml.src.scorers.cross_encoder import CrossEncoderScorer
 from ml.src.scorers.dense import DenseScorer
@@ -26,7 +27,9 @@ def test_bm25_scorer():
     # Test single and two-document collections (Lucene non-zero IDF)
     single_score = scorer.score("python", ["python"])
     assert single_score == [1.0]
-    two_scores = scorer.score("what is python", ["python is a programming language", "pasta recipe with cheese"])
+    two_scores = scorer.score(
+        "what is python", ["python is a programming language", "pasta recipe with cheese"]
+    )
     assert two_scores[0] > two_scores[1]
 
 

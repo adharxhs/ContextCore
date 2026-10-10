@@ -6,20 +6,19 @@ Owner: Validation & Lead. Last updated 2026-10-10 (base commit `145a25c`, includ
 
 ## Contract v2 (reconciled)
 
-Validation & Lead reconciled the contract with Engine PR #8. Engine shipped `budget_exceeded: bool`
-(the working name `over_budget` is retired). Remaining fields are still pending:
+The contract metadata is fully implemented. `budget_exceeded` is the canonical over-budget field;
+the earlier working name `over_budget` is retired.
 
 | Field | Owner | Purpose | State |
 |---|---|---|---|
 | `budget_exceeded` | Engine | explicit over-budget indicator (protected-only overflow) | **IMPLEMENTED** (PR #8) |
-| `token_budget` | Engine | echo the enforced budget so `budget_exceeded` is self-describing | `PEND` |
-| `tokenizer` | Engine | report the encoder actually used (`cl100k_base` vs `heuristic`) | `PEND` |
-| `budget_exceeded` | Product | mirror the engine's field in the HTTP response body | `PEND` |
-| `execution_mode` | Product | mirror the `X-ContextCore-Execution` header in the JSON body | `PEND` |
+| `token_budget` | Engine | echo the enforced budget so `budget_exceeded` is self-describing | **IMPLEMENTED** |
+| `tokenizer` | Engine | report the encoder actually used (`cl100k_base` vs `heuristic`) | **IMPLEMENTED** |
+| `budget_exceeded` | Product | mirror the engine's field in the HTTP response body | **IMPLEMENTED** |
+| `execution_mode` | Product | mirror the `X-ContextCore-Execution` header in the JSON body | **IMPLEMENTED** |
 
-`scripts/check_contract.py` reports these as `[PEND]` (not a failure) until implemented, then
-validates their presence and type strictly. The evaluation harness already derives all of them
-(and reads `budget_exceeded` from the engine), so validation is not blocked.
+`scripts/check_contract.py` validates every metadata field and type strictly. The evaluation
+harness reads the engine's `budget_exceeded` field directly.
 
 ## Blockers by lane
 
@@ -37,12 +36,12 @@ validates their presence and type strictly. The evaluation harness already deriv
 
 | Defect | Blocker | Required action |
 |---|---|---|
-| P3 | `CompressionResponse` has no `execution_mode` body field (header only) and no `budget_exceeded` field | Add both fields per contract v2 |
-| P2 | Product files fail `ruff` (part of 29 repo-wide errors) | Lint the Product lane paths |
+| P3 | API response parity for `execution_mode` and `budget_exceeded` | **Fixed**: response body and header are tested together |
+| P2 | Repository-wide Ruff failures | **Fixed**: full lint gate passes |
 
 ### Validation & Lead (lane 3) — this lane
 
-- Contract v2 reconciled with Engine PR #8; `budget_exceeded` is the shipped name, remaining fields `[PEND]`.
+- Contract metadata is implemented and checked strictly in the contract gate.
 - Benchmark expanded to 50 cases (40 core + 10 stress) covering near-dedup, oversized sentences,
   protected-only overflow, and protected-span precision.
 - Harness reports tokenizer/model mode, core/stress and per-category recall, and protected-linked
@@ -53,9 +52,9 @@ validates their presence and type strictly. The evaluation harness already deriv
 
 | Command | Outcome |
 |---|---|
-| `python -m pytest` | 66 passed |
-| `python -m ruff check scripts` | All checks passed |
-| `python scripts/check_contract.py` | PASS; 4 approved fields `PEND` |
+| `python -m pytest` | 79 passed |
+| `python -m ruff check .` | All checks passed |
+| `python scripts/check_contract.py` | PASS; contract metadata is required and present |
 | `python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-tokenizer --fail-on-degraded` | 0 errors; recall 80-83% (core 80-84%, stress 80%); reduction ~59%; 16/50 over budget, all protected-linked and engine-flagged; model mode full |
 | `bash scripts/smoke.sh` | Reproducible command (Docker); not run here — Docker unavailable on the validation host. Gated to manual CI dispatch. |
 
@@ -64,9 +63,7 @@ Full numbers live in `docs/evaluation.md`. Raw results: `data/processed/eval-res
 
 ## Handoff notes
 
-- Engine and Product can implement the remaining contract v2 fields independently; `check_contract.py`
-  will flip the `PEND` entries to strict checks automatically.
-- Once P3 is fixed, the Docker smoke job can move to the normal push/PR path, and
-  `--fail-on-over-budget` can gate the core case set.
+- The Docker smoke job can move to the normal push/PR path. `--fail-on-over-budget` remains a
+  future gate because the known protected-only overruns are intentionally surfaced, not hidden.
 - No answer-quality claim is made until the optional same-model comparison is configured, run, and
   recorded (see `docs/evaluation.md`).

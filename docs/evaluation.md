@@ -147,8 +147,8 @@ python scripts/evaluate.py --scorers bm25,dense,hybrid,cross_encoder --require-t
 | E8 | Medium | Engine | Unprotected sentence larger than the budget cannot be retained or truncated; silently dropped (`os-001`) | New, open |
 | E9 | Medium | Engine | Protected-span precision: irrelevant protected context is force-retained, crowding out relevant unprotected evidence (`pp-001`) and inflating output (`pp-001..003`) | New, open |
 | P1 | Medium | Product | Offline fallback indistinguishable from real engine results | **Fixed** (`X-ContextCore-Execution` header + dashboard labels fallback); contract v2 additionally requests the body field `execution_mode` |
-| P2 | Low | Product/Engine | Product/Engine files fail `ruff` (29 errors incl. `E501`, `I001`); CI gates validation-owned paths only | Open |
-| P3 | Low | Product | `CompressionResponse` has no `execution_mode` body field (header only) and no `budget_exceeded` field | New, open (contract v2 `PEND`) |
+| P2 | Low | Product/Engine | Repository-wide Ruff failures | **Fixed**: Ruff now passes across the repository |
+| P3 | Low | Product | API response parity for `execution_mode` and `budget_exceeded` | **Fixed**: the response body and execution header are covered by API tests |
 
 ## End-to-end quality check
 
