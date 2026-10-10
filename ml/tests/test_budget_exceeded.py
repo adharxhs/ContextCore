@@ -1,5 +1,5 @@
 from ml.src.inference import compress_context
-from ml.src.types import Message, ContextBlock
+from ml.src.types import ContextBlock, Message
 
 
 def test_budget_exceeded_flag_when_overflow():

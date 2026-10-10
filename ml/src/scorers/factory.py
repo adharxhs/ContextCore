@@ -7,7 +7,9 @@ from ml.src.types import ScorerType
 
 
 def get_scorer(scorer_name: str | ScorerType) -> BaseScorer:
-    name_str = scorer_name.value if isinstance(scorer_name, ScorerType) else str(scorer_name).lower()
+    name_str = (
+        scorer_name.value if isinstance(scorer_name, ScorerType) else str(scorer_name).lower()
+    )
 
     if name_str in ("bm25", "bm_25"):
         return BM25Scorer()

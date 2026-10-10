@@ -1,4 +1,5 @@
 import pytest
+
 from ml.src.inference import compress_context
 from ml.src.tokenizer import count_tokens
 from ml.src.types import ContextBlock, Message
@@ -81,7 +82,10 @@ def test_preserves_original_order():
 def test_accepts_dict_inputs():
     result = compress_context(
         system_prompt="You are a helper.",
-        history=[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there"}],
+        history=[
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there"},
+        ],
         context_blocks=[{"id": "c1", "content": "Sample context block"}],
         query="Hello",
         token_budget=100,

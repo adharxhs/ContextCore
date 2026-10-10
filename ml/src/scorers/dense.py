@@ -1,4 +1,5 @@
 import numpy as np
+
 from ml.src.scorers.base import BaseScorer
 
 _EMBED_MODEL = None

@@ -288,9 +288,7 @@ def run_case(case: dict[str, Any], scorer: str, compressor: Callable[..., Any]) 
     if explicit_over is None:
         explicit_over = _get(result, "over_budget", None)  # retired legacy name
     over_budget = (
-        bool(explicit_over)
-        if explicit_over is not None
-        else output_tokens > case["token_budget"]
+        bool(explicit_over) if explicit_over is not None else output_tokens > case["token_budget"]
     )
     over_budget_source = "engine (budget_exceeded)" if explicit_over is not None else "computed"
 
@@ -362,29 +360,35 @@ def summarize(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "mean_evidence_recall": round(sum(recalls) / len(recalls), 4) if recalls else 0.0,
             "core_mean_evidence_recall": round(
                 sum(r["evidence_recall"] for r in core) / len(core), 4
-            ) if core else 0.0,
+            )
+            if core
+            else 0.0,
             "stress_mean_evidence_recall": round(
                 sum(r["evidence_recall"] for r in stress) / len(stress), 4
-            ) if stress else 0.0,
+            )
+            if stress
+            else 0.0,
             "full_recall_cases": sum(1 for r in recalls if r == 1.0),
-            "token_reduction_micro": round(
-                1.0 - total_output / total_input, 4
-            ) if total_input else 0.0,
-            "token_reduction_macro": round(
-                sum(r["reduction"] for r in ok) / len(ok), 4
-            ) if ok else 0.0,
+            "token_reduction_micro": round(1.0 - total_output / total_input, 4)
+            if total_input
+            else 0.0,
+            "token_reduction_macro": round(sum(r["reduction"] for r in ok) / len(ok), 4)
+            if ok
+            else 0.0,
             "latency_p50_ms": round(percentile(latencies, 0.50), 3),
             "latency_p95_ms": round(percentile(latencies, 0.95), 3),
             "over_budget_cases": sum(1 for r in ok if r.get("over_budget")),
             "over_budget_protected_cases": sum(1 for r in ok if r.get("over_budget_protected")),
-            "budget_overrun_rate": round(
-                sum(1 for r in ok if r.get("over_budget")) / len(ok), 4
-            ) if ok else 0.0,
+            "budget_overrun_rate": round(sum(1 for r in ok if r.get("over_budget")) / len(ok), 4)
+            if ok
+            else 0.0,
             "mean_overrun_tokens": round(
                 sum(max(0, r["output_tokens"] - r.get("budget", r["output_tokens"])) for r in ok)
                 / len(ok),
                 1,
-            ) if ok else 0.0,
+            )
+            if ok
+            else 0.0,
             "missed_evidence_cases": sum(1 for r in ok if r.get("missed_evidence")),
             "by_category": by_category,
         }
@@ -444,9 +448,7 @@ def _mock_compress(
     compressed = "\n".join(ordered)
     input_tokens = len(_tokenize_ws(" ".join([system_prompt] + [c["text"] for c in chunks])))
     output_tokens = len(_tokenize_ws(compressed))
-    kept = keep_ids | {
-        id(c) for c in chunks if c["kind"] == "history" and c["text"] in forced
-    }
+    kept = keep_ids | {id(c) for c in chunks if c["kind"] == "history" and c["text"] in forced}
     return {
         "compressed_text": compressed,
         "input_tokens": input_tokens,

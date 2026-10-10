@@ -1,4 +1,3 @@
-import pytest
 from ml.src.inference import compress_context
 from ml.src.types import ContextBlock, Message
 
@@ -69,7 +68,7 @@ def test_all_chunks_have_reasons():
     for trace in result.selected_chunks:
         assert trace.reason, f"Selected chunk {trace.id} has no reason"
         assert len(trace.reason.strip()) > 0, f"Selected chunk {trace.id} has empty reason"
-    
+
     for trace in result.dropped_chunks:
         assert trace.reason, f"Dropped chunk {trace.id} has no reason"
         assert len(trace.reason.strip()) > 0, f"Dropped chunk {trace.id} has empty reason"

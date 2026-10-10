@@ -31,8 +31,7 @@ CONTEXT_BLOCKS = [
     {
         "id": "refund-policy",
         "content": (
-            "Eligible refunds are issued to the original payment method within "
-            "5 business days."
+            "Eligible refunds are issued to the original payment method within 5 business days."
         ),
         "source": "support-kb",
     },
@@ -98,8 +97,10 @@ def main(argv: list[str] | None = None) -> int:
     reduction = (saved / input_tokens * 100) if input_tokens else 0.0
 
     print(f"scorer={args.scorer}  budget={args.budget}")
-    print(f"input_tokens={input_tokens}  output_tokens={output_tokens}  saved={saved} "
-          f"({reduction:.1f}% reduction)  over_budget={output_tokens > args.budget}")
+    print(
+        f"input_tokens={input_tokens}  output_tokens={output_tokens}  saved={saved} "
+        f"({reduction:.1f}% reduction)  over_budget={output_tokens > args.budget}"
+    )
     print(f"compression_ms={_get(result, 'compression_ms', 0)}")
     print("\n--- compressed_text ---")
     print(_get(result, "compressed_text", ""))
@@ -108,8 +109,10 @@ def main(argv: list[str] | None = None) -> int:
     traces = list(_get(result, "selected_chunks", [])) + list(_get(result, "dropped_chunks", []))
     traces.sort(key=lambda t: _get(t, "original_index", 0))
     for trace in traces:
-        print(f"[{_state(trace):9}] {_get(trace, 'id'):18} {_get(trace, 'token_count'):>4}t "
-              f"score={_get(trace, 'score'):<6} {_get(trace, 'reason')}")
+        print(
+            f"[{_state(trace):9}] {_get(trace, 'id'):18} {_get(trace, 'token_count'):>4}t "
+            f"score={_get(trace, 'score'):<6} {_get(trace, 'reason')}"
+        )
 
     over_budget = output_tokens > args.budget
     note = (

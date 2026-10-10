@@ -20,7 +20,9 @@ def select_chunks(
         return SelectionResult(selected_chunks=[], dropped_chunks=[], compressed_text="")
 
     def _format_text(indices: set[int]) -> str:
-        return "\n\n".join(chunks[i].trace.text for i in sorted(indices) if chunks[i].trace.text.strip())
+        return "\n\n".join(
+            chunks[i].trace.text for i in sorted(indices) if chunks[i].trace.text.strip()
+        )
 
     def _count_serialized_tokens(indices: set[int]) -> int:
         return count_tokens(_format_text(indices))
@@ -87,7 +89,9 @@ def select_chunks(
                     p_chunk = chunks[p_idx]
                     p_chunk.trace.selected = True
                     if p_idx in chunk.qa_parent_indices:
-                        p_reason = f"retained as QA dependency for assistant turn '{chunk.trace.id}'"
+                        p_reason = (
+                            f"retained as QA dependency for assistant turn '{chunk.trace.id}'"
+                        )
                     else:
                         p_reason = f"retained as QA context for user question '{chunk.trace.id}'"
                     if p_chunk.trace.reason:
@@ -96,8 +100,7 @@ def select_chunks(
                         p_chunk.trace.reason = p_reason
 
     # 3. Finalize traces and explanations
-    final_output_tokens = _count_serialized_tokens(selected_indices)
-    is_protected_overflow = (protected_tokens > token_budget)
+    is_protected_overflow = protected_tokens > token_budget
 
     selected_traces: list[ChunkTrace] = []
     dropped_traces: list[ChunkTrace] = []
@@ -109,9 +112,13 @@ def select_chunks(
             if is_protected_overflow and trace.protected:
                 if "exceeding token budget" not in trace.reason:
                     if trace.reason:
-                        trace.reason += "; retained under protection rule despite exceeding token budget"
+                        trace.reason += (
+                            "; retained under protection rule despite exceeding token budget"
+                        )
                     else:
-                        trace.reason = "retained under protection rule despite exceeding token budget"
+                        trace.reason = (
+                            "retained under protection rule despite exceeding token budget"
+                        )
             if not trace.reason:
                 trace.reason = f"selected (score: {trace.score:.2f})"
             selected_traces.append(trace)
@@ -131,7 +138,9 @@ def select_chunks(
                     trace.reason = f"dropped: token budget exhausted (score: {trace.score:.2f})"
                 else:
                     if "dropped:" not in trace.reason:
-                        trace.reason += f"; dropped: token budget exhausted (score: {trace.score:.2f})"
+                        trace.reason += (
+                            f"; dropped: token budget exhausted (score: {trace.score:.2f})"
+                        )
             dropped_traces.append(trace)
 
     # 4. Order preservation: ensure selected and dropped chunks are sorted by original_index

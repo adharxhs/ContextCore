@@ -89,23 +89,19 @@ TAXONOMY = {
     "protected_precision",
 }
 
-# Contract v2 metadata fields approved by Validation & Lead (see docs/contract.md).
-# They are validated strictly *when present*; while an owning lane has not shipped
-# them they are reported as PEND (approved, awaiting implementation), never as a
-# failure, so `main` stays green until the dependent work merges.
-# Note: tokenizer uses Literal type to enforce "exactly one of cl100k_base or heuristic"
-# per contract §2; the checker accepts either str or the Literal form.
-PENDING_ENGINE_FIELDS = {
+# Contract metadata is required by docs/contract.md and validated on every run.
+# Tokenizer accepts its explicit Literal annotation so clients can distinguish
+# verified tiktoken counts from heuristic fallback counts.
+REQUIRED_ENGINE_FIELDS = {
     "token_budget": int,
     "tokenizer": (str, "Literal['cl100k_base', 'heuristic']"),
 }
-PENDING_API_FIELDS = {
+REQUIRED_API_FIELDS = {
     "budget_exceeded": bool,
     "execution_mode": "Literal['engine', 'fallback']",
 }
 
 failures: list[str] = []
-pending: list[str] = []
 
 
 def check(condition: bool, message: str) -> None:
@@ -113,11 +109,6 @@ def check(condition: bool, message: str) -> None:
     print(f"[{status}] {message}")
     if not condition:
         failures.append(message)
-
-
-def pend(message: str) -> None:
-    print(f"[PEND] {message}")
-    pending.append(message)
 
 
 def _field_type_ok(model: object, field: str, expected: type | str | tuple) -> tuple[bool, str]:
@@ -132,7 +123,7 @@ def _field_type_ok(model: object, field: str, expected: type | str | tuple) -> t
         if expected in str(annotation):
             return True, "present"
         return False, f"present but annotated {annotation!r}, expected {expected}"
-    
+
     # Handle tuple of alternatives (e.g., for tokenizer: str or Literal)
     if isinstance(expected, tuple):
         expected_type, expected_literal = expected
@@ -148,7 +139,7 @@ def _field_type_ok(model: object, field: str, expected: type | str | tuple) -> t
             f"present but annotated {annotation!r}, "
             f"expected {expected_type.__name__} or {expected_literal}",
         )
-    
+
     # Handle simple type checking
     if annotation is expected:
         return True, "present"
@@ -216,19 +207,17 @@ def check_docs() -> None:
         check("Context Surgeon" not in text, f"{path.name} has no stale 'Context Surgeon' name")
 
 
-def check_pending_fields() -> None:
-    """Validate approved contract-v2 metadata fields; missing ones are PEND, not FAIL."""
+def check_required_metadata_fields() -> None:
+    """Validate required contract metadata fields and their public types."""
     try:
         from ml.src.types import CompressionResult
     except Exception as exc:  # pragma: no cover - environment dependent
         check(False, f"engine types import: {exc!r}")
         return
-    for field, expected in PENDING_ENGINE_FIELDS.items():
+    for field, expected in REQUIRED_ENGINE_FIELDS.items():
         ok, detail = _field_type_ok(CompressionResult, field, expected)
         if ok:
             check(True, f"engine CompressionResult exposes contract field {field!r}")
-        elif detail == "missing":
-            pend(f"engine CompressionResult is missing approved field {field!r} (owner: Engine)")
         else:
             check(False, f"engine field {field!r} {detail}")
 
@@ -237,13 +226,11 @@ def check_pending_fields() -> None:
     except Exception as exc:  # pragma: no cover - environment dependent
         check(False, f"backend schema import: {exc!r}")
         return
-    for field, expected in PENDING_API_FIELDS.items():
+    for field, expected in REQUIRED_API_FIELDS.items():
         ok, detail = _field_type_ok(CompressionResponse, field, expected)
         if ok:
             expected_name = expected.__name__ if hasattr(expected, "__name__") else str(expected)
             check(True, f"API exposes contract field {field!r} ({expected_name})")
-        elif detail == "missing":
-            pend(f"API CompressionResponse is missing approved field {field!r} (owner: Product)")
         else:
             check(False, f"API field {field!r} {detail}")
 
@@ -254,12 +241,8 @@ def main() -> int:
     check_tokenizer()
     check_cases()
     check_docs()
-    check_pending_fields()
+    check_required_metadata_fields()
     print()
-    if pending:
-        print(f"PEND: {len(pending)} approved contract field(s) awaiting implementation")
-        for item in pending:
-            print(f"      - {item}")
     if failures:
         print(f"FAIL: {len(failures)} contract check(s) failed")
         return 1

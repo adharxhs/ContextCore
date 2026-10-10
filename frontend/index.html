@@ -1,19 +1,192 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#e9e7e1"><title>ContextCore | Proof Engine</title><link rel="stylesheet" href="/styles.css"></head>
-<body><main>
-  <nav aria-label="Primary navigation"><a class="brand" href="#top" aria-label="ContextCore home"><span class="brand-mark">C</span><span>CONTEXT</span><b>CORE</b></a><div class="nav-status"><span></span>PROOF ENGINE <small>NO LLM IN PATH</small></div></nav>
-  <section class="hero" id="top"><div class="hero-copy"><p class="eyebrow">EXPLAINABLE CONTEXT COMPRESSION / 01</p><h1>KEEP THE <span>PROOF.</span><br>CUT THE CONTEXT.</h1><p>ContextCore finds the evidence that matters, preserves the facts that cannot be lost, and leaves a complete decision trail.</p></div><aside class="hero-proof" aria-label="System promise"><span class="stamp">VERIFIABLE</span><strong id="hero-savings">AWAITING CASE</strong><p>SHORTER CONTEXT<br>FULL PROVENANCE</p><small>MODEL-AGNOSTIC / OFFLINE-CAPABLE</small></aside></section>
-  <section class="workbench" aria-label="Context compression workbench"><aside class="controls case-file"><header class="panel-heading"><span>02</span><div><p>INPUT DOSSIER</p><h2>Case file</h2></div></header><label>Customer question<textarea id="query">How long will my refund take, and can I track it?</textarea></label><label>System instruction<textarea id="system">You are a helpful support assistant. Never invent account balances, dates, or policy terms.</textarea></label><div class="row"><label>Token budget<input id="budget" type="number" value="50" min="1"></label><label>Scoring<select id="scorer"><option value="hybrid">Hybrid</option><option value="bm25">BM25</option><option value="dense">Dense</option><option value="cross_encoder">Cross-encoder</option></select></label></div><label>Context blocks<textarea id="blocks">Refund policy: Eligible refunds are issued to the original payment method within 5 business days.
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#e9e7e1">
+  <title>ContextCore | Proof Engine</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="ContextCore home">
+        <span class="brand-mark">✦</span>
+        <span>Context</span><b>Core</b>
+      </a>
+      <div class="nav-status">
+        <span></span>EXPLAINABLE COMPRESSION <small>NO LLM IN PATH</small>
+      </div>
+    </nav>
 
-Tracking: Customers receive an email confirmation and transaction reference once the refund is initiated.
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow">CONTEXT WITH CONFIDENCE</p>
+        <h1>Keep the evidence.<br><span>Lose the clutter.</span></h1>
+        <p>Protect the details customers depend on while reducing context cost and latency.</p>
+      </div>
+      <aside class="hero-proof" aria-label="System promise">
+        <img class="companion" src="/public/images/contextcore-companion.png" alt="ContextCore companion holding an evidence card beside a plant">
+        <span class="stamp">VERIFIABLE</span>
+        <strong id="hero-savings">AWAITING CASE</strong>
+        <p>SHORTER CONTEXT<br>FULL PROVENANCE</p>
+        <small>MODEL-AGNOSTIC / OFFLINE-CAPABLE</small>
+      </aside>
+    </section>
 
-Summer campaign: Our support team won an internal service award last June.
+    <section class="workbench" aria-label="Context compression workbench">
+      <aside class="controls case-file">
+        <header class="panel-heading">
+          <span>02</span>
+          <div><p>INPUT DOSSIER</p><h2>Case file</h2></div>
+        </header>
+        <p class="dossier-actions">
+          <button type="button" id="load-demo" class="secondary" title="Load the fixed refund-deadline demonstration">
+            Load demo case <span>&darr;</span>
+          </button>
+        </p>
+        <label>Customer question
+          <textarea id="query">What is the approved refund deadline for order 88219?</textarea>
+        </label>
+        <label>System instruction
+          <textarea id="system">You are a support assistant for Acme Commerce. Answer only from the provided context. Never invent account balances, dates, order statuses, or policy terms, and always cite the governing policy.</textarea>
+        </label>
+        <div class="row">
+          <label>Token budget
+            <input id="budget" type="number" value="250" min="1">
+          </label>
+          <label>Scoring
+            <select id="scorer">
+              <option value="hybrid">Hybrid</option>
+              <option value="bm25">BM25</option>
+              <option value="dense">Dense</option>
+              <option value="cross_encoder">Cross-encoder</option>
+            </select>
+          </label>
+        </div>
+        <label>Context blocks
+          <textarea id="blocks">Refund Policy: The approved refund deadline for eligible orders is 5 business days from the approval date, excluding weekends and public holidays. Refunds are issued to the original payment method.
 
-Office news: The support lounge added plants, a coffee corner, and a reading shelf for the team.
+Order 88219: approval for a full refund of $248.00 recorded on 2026-10-01. Transaction reference RF-88219-4471. Status: refund initiated.
 
-Brand notes: The company palette uses deep green, warm cream, and a leaf motif across campaign materials.
+Refund tracking: Customers receive an email confirmation and a transaction reference once the refund is initiated.
 
-Order #CS-2048 was marked delivered on 2026-10-02.</textarea></label><button id="compress">Run proof engine <span>&rarr;</span></button><p id="status" role="status">READY FOR EVIDENCE <i></i></p></aside>
-  <section class="results"><header class="section-heading"><div><span>03</span><div><p>COMPRESSION RESULT</p><h2>Evidence verdict</h2></div></div><p id="execution" class="execution">Awaiting request</p></header><article class="verdict" aria-live="polite"><div><p>CONTEXT REDUCTION</p><strong id="verdict-value">--%</strong><span id="verdict-subtitle">Run a case to calculate savings.</span></div><div class="verdict-rail"><span id="verdict-input"></span><i id="verdict-output"></i></div><div class="verdict-summary"><b id="verdict-protected">--</b><span>PROTECTED FACTS RETAINED</span></div></article><div class="metrics" id="metrics"><article><small>Input</small><strong>&mdash;</strong><em>tokens</em></article><article><small>Retained</small><strong>&mdash;</strong><em>tokens</em></article><article><small>Saved</small><strong>&mdash;</strong><em>tokens</em></article><article><small>Latency</small><strong>&mdash;</strong><em>ms</em></article></div><div class="comparison"><article class="evidence-panel"><header><span>ORIGINAL CASE CONTEXT</span><small id="original-count"></small></header><pre id="original">Run compression to inspect the source context.</pre></article><article class="evidence-panel retained"><header><span>RETAINED EVIDENCE</span><small id="retained-count"></small></header><pre id="compressed">Protected instructions and customer-critical facts will appear here.</pre></article></div><section class="trace evidence-panel"><header><div><p class="eyebrow">04 / DECISION LEDGER</p><h2>Every fragment has a reason</h2></div><div class="legend"><span class="dot protected"></span>Protected <span class="dot selected"></span>Selected <span class="dot dropped"></span>Dropped</div></header><div id="trace-body" class="trace-body"><p class="empty">The decision ledger will record every keep and drop.</p></div></section></section></section>
-</main><script src="/app.js"></script></body></html>
+Returns: Clothing may be returned within 30 days of delivery in original condition. Final-sale items are not returnable.
+
+Chargeback Policy: If a customer disputes a charge, the bank may freeze the amount for up to 45 calendar days during the investigation.
+
+Shipping: Standard takes 3 to 5 business days. Express takes 1 to 2 business days. Free shipping applies on orders over $75.
+
+Loyalty Program: Members earn 1 point per dollar spent. Points expire after 12 months of inactivity.
+
+Office News: The support lounge added plants, a coffee corner, and a reading shelf this quarter. The team celebrated an internal award last June.
+
+Brand Notes: The company palette uses deep green, warm cream, and a leaf motif across all campaign materials.
+
+Site Search: The storefront index reindexes nightly at 03:00 UTC. Search ranking favors exact SKU matches.
+
+Team Chat: The support team uses an internal chat for escalations. Agents must close the loop on every ticket within 2 business days.</textarea>
+        </label>
+        <button id="compress">Run proof engine <span>&rarr;</span></button>
+        <p id="status" role="status">READY FOR EVIDENCE <i></i></p>
+      </aside>
+
+      <section class="results">
+        <header class="section-heading">
+          <div><span>03</span><div><p>COMPRESSION RESULT</p><h2>Evidence verdict</h2></div></div>
+          <p id="execution" class="execution">Awaiting request</p>
+        </header>
+
+        <p id="budget-warning" class="budget-warning" role="alert" hidden></p>
+
+        <article class="verdict" aria-live="polite">
+          <div>
+            <p>CONTEXT REDUCTION</p>
+            <strong id="verdict-value">--%</strong>
+            <span id="verdict-subtitle">Run a case to calculate savings.</span>
+          </div>
+          <div class="verdict-rail">
+            <span id="verdict-input"></span>
+            <i id="verdict-output"></i>
+          </div>
+          <div class="verdict-summary">
+            <b id="verdict-protected">--</b>
+            <span>PROTECTED FACTS RETAINED</span>
+          </div>
+        </article>
+
+        <div class="metrics" id="metrics">
+          <article><small>Input</small><strong>&mdash;</strong><em>tokens</em></article>
+          <article><small>Retained</small><strong>&mdash;</strong><em>tokens</em></article>
+          <article><small>Saved</small><strong>&mdash;</strong><em>tokens</em></article>
+          <article><small>Latency</small><strong>&mdash;</strong><em>ms</em></article>
+        </div>
+
+        <div class="comparison">
+          <article class="evidence-panel">
+            <header>
+              <span>ORIGINAL CASE CONTEXT</span>
+              <small id="original-count"></small>
+            </header>
+            <div id="original" class="chunks">
+              <p class="empty">Run compression to inspect the numbered source context.</p>
+            </div>
+          </article>
+
+          <article class="evidence-panel retained">
+            <header>
+              <span>RETAINED EVIDENCE</span>
+              <small id="retained-count"></small>
+            </header>
+            <div id="compressed" class="chunks">
+              <p class="empty">Protected instructions and customer-critical facts will appear here with the same chunk numbers.</p>
+            </div>
+          </article>
+        </div>
+
+        <section class="trace evidence-panel">
+          <header>
+            <div>
+              <p class="eyebrow">04 / DECISION LEDGER</p>
+              <h2>Every fragment has a reason</h2>
+            </div>
+            <div class="legend">
+              <span class="dot protected"></span>Protected
+              <span class="dot selected"></span>Kept
+              <span class="dot dropped"></span>Dropped
+              <span id="trace-count" class="trace-count"></span>
+            </div>
+          </header>
+
+          <div class="filters" role="group" aria-label="Filter decision ledger">
+            <button type="button" data-filter="all" class="filter active">All</button>
+            <button type="button" data-filter="protected" class="filter">Protected</button>
+            <button type="button" data-filter="selected" class="filter">Kept</button>
+            <button type="button" data-filter="dropped" class="filter">Dropped</button>
+          </div>
+
+          <div id="trace-body" class="trace-body">
+            <p class="empty">The decision ledger will record every keep and drop.</p>
+          </div>
+        </section>
+      </section>
+    </section>
+
+    <section class="evidence" aria-label="Recorded benchmark evidence">
+      <header class="panel-heading">
+        <span>05</span>
+        <div><p>RECORDED EVIDENCE</p><h2>Benchmark snapshot</h2></div>
+      </header>
+      <p class="benchmark-note">50 fixed cases, real engine, base <code>145a25c</code>. Token reduction ~59%; mean evidence recall 80&ndash;83%. Sixteen over-budget cases are protected-linked and engine-flagged. Known open gaps: QA-dependency and long-history turns, the unprotected oversized sentence, and protected-span precision. No same-model answer comparison has run, so no quality claim is made.</p>
+      <dl class="benchmark-grid">
+        <div><dt>Token reduction</dt><dd>~59%</dd></div>
+        <div><dt>Evidence recall</dt><dd>80&ndash;83%</dd></div>
+        <div><dt>Budget overruns</dt><dd>16 / 50, all protected-linked</dd></div>
+        <div><dt>Latency p50 / p95</dt><dd>0.7 ms / 51 ms (hybrid)</dd></div>
+      </dl>
+      <p class="benchmark-note">Reproduce: <code>python scripts/evaluate.py --scorers bm25 --require-tokenizer</code> &middot; Source: <code>docs/evaluation.md</code></p>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

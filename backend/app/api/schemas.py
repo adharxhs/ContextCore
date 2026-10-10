@@ -61,6 +61,7 @@ class CompressionResponse(ContractModel):
     selected_chunks: list[ChunkTrace]
     dropped_chunks: list[ChunkTrace]
 
+
 class ErrorBody(BaseModel):
     """Stable error payload for validation and execution failures."""
 

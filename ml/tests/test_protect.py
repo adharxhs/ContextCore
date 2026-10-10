@@ -8,7 +8,9 @@ def test_protect_system_prompt():
 
 
 def test_protect_recent_user_turn():
-    match = detect_protected_spans("What is the capital of France?", source_type="history", is_recent_user_turn=True)
+    match = detect_protected_spans(
+        "What is the capital of France?", source_type="history", is_recent_user_turn=True
+    )
     assert match.is_protected
     assert any("recent user turn" in r for r in match.reasons)
 

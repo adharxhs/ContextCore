@@ -3,6 +3,7 @@ from typing import Literal
 
 try:
     import tiktoken
+
     _TIKTOKEN_AVAILABLE = True
 except ImportError:
     tiktoken = None
