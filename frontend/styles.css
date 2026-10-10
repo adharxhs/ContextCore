@@ -115,6 +115,8 @@ body{color:var(--ink);background:radial-gradient(ellipse at 50% 0,#0e1d2c 0,tran
 .benchmark-grid dd{margin:0;color:var(--ink);font:800 18px var(--display);letter-spacing:-.05em}
 
 .execution.budget-exceeded{background:var(--danger)!important;color:#fff!important;border-color:var(--danger)!important;animation:pulse 1s infinite}
+.execution.running{background:var(--mint)!important;color:var(--mint-deep)!important;border-color:var(--mint-deep)!important}
+.execution.error{background:var(--danger)!important;color:#fff!important;border-color:var(--danger)!important}
 
 @media(max-width:960px){.benchmark-grid{grid-template-columns:1fr 1fr}.chunks{max-height:300px}}
 @media(max-width:640px){.benchmark-grid{grid-template-columns:1fr}.filters{flex-wrap:wrap}.chunk>footer{flex-direction:column;gap:4px}.trace-count{display:none}}

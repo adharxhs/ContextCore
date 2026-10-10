@@ -12,7 +12,7 @@ const DEMO_CASE = {
     "You are a support assistant for Acme Commerce. Answer only from the provided context. " +
     "Never invent account balances, dates, order statuses, or policy terms, and always cite the governing policy.",
   budget: "250",
-  scorer: "hybrid",
+  scorer: "bm25",
   blocks: [
     "Refund Policy: The approved refund deadline for eligible orders is 5 business days from the approval date, excluding weekends and public holidays. Refunds are issued to the original payment method.",
     "Order 88219: approval for a full refund of $248.00 recorded on 2026-10-01. Transaction reference RF-88219-4471. Status: refund initiated.",
@@ -243,6 +243,7 @@ document.querySelectorAll(".filter").forEach((button) => {
 $("compress").addEventListener("click", async () => {
   const button = $("compress");
   const status = $("status");
+  const execution = $("execution");
   const blocks = getBlocks();
   const payload = {
     system_prompt: $("system").value,
@@ -254,11 +255,16 @@ $("compress").addEventListener("click", async () => {
   };
   button.disabled = true;
   status.textContent = "Selecting the evidence...";
+  execution.textContent = "Running compression…";
+  execution.className = "execution running";
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
   try {
     const response = await fetch(`${apiUrl}/v1/compress`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
     const data = await response.json();
     if (!response.ok)
@@ -267,8 +273,14 @@ $("compress").addEventListener("click", async () => {
     const executionMode = headerMode === data.execution_mode ? headerMode : "unknown";
     status.textContent = render(data, executionMode, payload.scorer);
   } catch (error) {
-    status.textContent = `Connection issue: ${error.message}`;
+    const message = error.name === "AbortError"
+      ? "Compression timed out after 20 seconds. Try BM25 or check that the backend is running."
+      : `Connection issue: ${error.message}`;
+    status.textContent = message;
+    execution.textContent = "Compression request failed";
+    execution.className = "execution error";
   } finally {
+    window.clearTimeout(timeout);
     button.disabled = false;
   }
 });
